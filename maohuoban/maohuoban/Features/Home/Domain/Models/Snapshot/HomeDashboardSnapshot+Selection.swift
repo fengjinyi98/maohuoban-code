@@ -120,8 +120,8 @@ private extension HomeDashboardSnapshot.Action {
                 ),
                 HomeDashboardSnapshot.Action(
                     kind: .bookHospital,
-                    title: "预约医院",
-                    subtitle: "同城服务协同"
+                    title: "预约合作医院",
+                    subtitle: "HIS 病历回流"
                 )
             ]
         case .newUser, .familyCaretaker, .certifiedMerchant, .unverifiedMerchant:

@@ -9,7 +9,7 @@ struct HospitalBookingLoadingSection: View {
     var body: some View {
         HospitalBookingMessageSection(
             systemImage: "hourglass",
-            title: "正在读取同城医院",
+            title: "正在读取合作医院",
             message: "请稍候",
             color: MHBTheme.ColorToken.primary.color,
             showsProgress: true
@@ -35,14 +35,14 @@ struct HospitalBookingSubmittingSection: View {
 
 // HospitalBookingEmptySection 医院列表空态
 // 核心职责：
-// - 展示当前城市没有可预约医院
-// - 保持同城模块后续扩展入口
+// - 展示当前城市没有 HIS 合作医院
+// - 明确非合作医院应走诊前资料包辅助路径
 struct HospitalBookingEmptySection: View {
     var body: some View {
         HospitalBookingMessageSection(
             systemImage: "building.2.crop.circle",
-            title: "暂无可预约医院",
-            message: "后续同城模块会补充更多认证医院",
+            title: "暂无合作医院",
+            message: "当前城市暂未开通合作医院，可先生成诊前资料包带去线下就医",
             color: MHBTheme.ColorToken.warning.color
         )
     }
@@ -57,7 +57,7 @@ struct HospitalBookingUnavailableSection: View {
         HospitalBookingMessageSection(
             systemImage: "pawprint.circle",
             title: "请先选择宠物",
-            message: "医院预约需要绑定当前宠物档案",
+            message: "合作医院预约需要绑定当前宠物档案",
             color: MHBTheme.ColorToken.warning.color
         )
     }
@@ -72,7 +72,7 @@ struct HospitalBookingSuccessSection: View {
         HospitalBookingMessageSection(
             systemImage: "checkmark.seal.fill",
             title: "预约已提交",
-            message: "当前状态为待确认，医院确认后会进入后续沟通",
+            message: "当前状态为待确认，合作医院确认后会进入后续沟通",
             color: MHBTheme.ColorToken.success.color
         )
     }

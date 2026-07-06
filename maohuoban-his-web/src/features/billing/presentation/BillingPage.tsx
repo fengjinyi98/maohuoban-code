@@ -11,7 +11,7 @@ import { useBillingViewModel } from "../view-models/useBillingViewModel";
 // BillingPage 收费页
 // 核心职责：
 // - 展示待收费账单和收据预览
-// - 支持 mock 收款、退款原因和审计记录生成
+// - 支持真实后端收费动作和退款原因提交
 export function BillingPage() {
   const vm = useBillingViewModel();
   const [refundReasons, setRefundReasons] = useState<Record<string, string>>(

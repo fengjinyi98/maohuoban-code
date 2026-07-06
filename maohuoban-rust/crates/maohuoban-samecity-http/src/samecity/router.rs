@@ -49,10 +49,14 @@ async fn list_hospitals(
     _actor: AuthenticatedUser,
     Query(query): Query<HospitalsQuery>,
 ) -> Response {
-    match state.samecity.list_verified_hospitals(&query.city).await {
+    match state
+        .samecity
+        .list_bookable_partner_hospitals(&query.city)
+        .await
+    {
         Ok(hospitals) => ok_response(
             "samecity.hospitals_loaded",
-            "同城医院已加载",
+            "合作医院已加载",
             HospitalsData::new(query.city, hospitals),
         ),
         Err(error) => error_response(&error),

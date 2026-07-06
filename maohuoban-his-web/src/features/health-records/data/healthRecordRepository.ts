@@ -1,23 +1,26 @@
-import type { HealthRecordPublication } from "../../../shared/api/types";
+import type {
+  BackendEnvelope,
+  HealthRecordPublication,
+} from "../../../shared/api/types";
 import { apiRequest } from "../../../shared/api/http";
 import { sessionHeaders } from "../../../shared/api/sessionHeaders";
 import type { PublicationAction } from "../domain/models";
 
 export function listPublications() {
-  return apiRequest<HealthRecordPublication[]>(
-    "/api/mock/his/health-record-publications",
-  );
+  return apiRequest<BackendEnvelope<HealthRecordPublication[]>>(
+    "/api/v1/his/health-record-publications",
+  ).then((response) => response.data);
 }
 
 export function updatePublication(
   publicationId: string,
   action: PublicationAction,
 ) {
-  return apiRequest<HealthRecordPublication>(
-    `/api/mock/his/health-record-publications/${publicationId}/${action}`,
+  return apiRequest<BackendEnvelope<HealthRecordPublication>>(
+    `/api/v1/his/health-record-publications/${publicationId}/${action}`,
     {
       method: "POST",
       headers: sessionHeaders(),
     },
-  );
+  ).then((response) => response.data);
 }

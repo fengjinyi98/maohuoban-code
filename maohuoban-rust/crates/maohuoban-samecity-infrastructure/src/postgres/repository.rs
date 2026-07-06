@@ -2,15 +2,15 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use maohuoban_samecity_application::samecity::{BookHospitalAppointmentInput, SameCityRepository};
 use maohuoban_samecity_domain::samecity::{
-    Hospital, HospitalAppointment, HospitalAppointmentStatus, SameCityError, SameCityResult,
-    VerificationStatus,
+    Hospital, HospitalAppointment, HospitalAppointmentStatus, HospitalPartnershipStatus,
+    SameCityError, SameCityResult, VerificationStatus,
 };
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 /// PostgresSameCityRepository PostgreSQL 同城仓储
 /// 核心职责：
-/// - 查询已认证同城医院实体
+/// - 查询已接入 HIS 的合作医院实体
 /// - 写入用户医院预约并校验宠物归属
 #[derive(Debug, Clone)]
 pub struct PostgresSameCityRepository {
@@ -26,7 +26,7 @@ impl PostgresSameCityRepository {
 
 #[async_trait]
 impl SameCityRepository for PostgresSameCityRepository {
-    async fn list_verified_hospitals(&self, city: &str) -> SameCityResult<Vec<Hospital>> {
+    async fn list_bookable_partner_hospitals(&self, city: &str) -> SameCityResult<Vec<Hospital>> {
         let rows = sqlx::query_as::<_, HospitalRow>(
             r#"
             SELECT
@@ -38,10 +38,20 @@ impl SameCityRepository for PostgresSameCityRepository {
                 phone,
                 service_tags,
                 verification_status,
+                partnership_status,
+                his_enabled,
+                his_tenant_id,
+                appointment_enabled,
+                medical_record_return_enabled,
                 created_at,
                 updated_at
             FROM samecity_hospitals
-            WHERE city = $1 AND verification_status = 'verified'
+            WHERE city = $1
+              AND verification_status = 'verified'
+              AND partnership_status = 'active'
+              AND his_enabled = true
+              AND his_tenant_id IS NOT NULL
+              AND appointment_enabled = true
             ORDER BY name ASC
             "#,
         )
@@ -57,7 +67,7 @@ impl SameCityRepository for PostgresSameCityRepository {
         &self,
         input: BookHospitalAppointmentInput,
     ) -> SameCityResult<HospitalAppointment> {
-        ensure_verified_hospital(&self.pool, input.hospital_id).await?;
+        ensure_bookable_partner_hospital(&self.pool, input.hospital_id).await?;
         if let Some(pet_id) = input.pet_id {
             ensure_pet_belongs_to_owner(&self.pool, pet_id, input.owner_user_id).await?;
         }
@@ -109,17 +119,22 @@ impl SameCityRepository for PostgresSameCityRepository {
     }
 }
 
-/// ensure_verified_hospital 校验医院可预约
+/// ensure_bookable_partner_hospital 校验医院可预约
 /// 核心职责：
 /// - 确认医院实体存在
-/// - 限定首页预约只进入已认证医院
-async fn ensure_verified_hospital(pool: &PgPool, hospital_id: Uuid) -> SameCityResult<()> {
+/// - 限定首页预约只进入已接入 HIS 的合作医院
+async fn ensure_bookable_partner_hospital(pool: &PgPool, hospital_id: Uuid) -> SameCityResult<()> {
     let exists = sqlx::query_scalar::<_, bool>(
         r#"
         SELECT EXISTS (
             SELECT 1
             FROM samecity_hospitals
-            WHERE id = $1 AND verification_status = 'verified'
+            WHERE id = $1
+              AND verification_status = 'verified'
+              AND partnership_status = 'active'
+              AND his_enabled = true
+              AND his_tenant_id IS NOT NULL
+              AND appointment_enabled = true
         )
         "#,
     )
@@ -176,6 +191,11 @@ struct HospitalRow {
     phone: Option<String>,
     service_tags: Vec<String>,
     verification_status: String,
+    partnership_status: String,
+    his_enabled: bool,
+    his_tenant_id: Option<Uuid>,
+    appointment_enabled: bool,
+    medical_record_return_enabled: bool,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
 }
@@ -193,6 +213,13 @@ impl TryFrom<HospitalRow> for Hospital {
             phone: row.phone,
             service_tags: row.service_tags,
             verification_status: VerificationStatus::try_from(row.verification_status.as_str())?,
+            partnership_status: HospitalPartnershipStatus::try_from(
+                row.partnership_status.as_str(),
+            )?,
+            his_enabled: row.his_enabled,
+            his_tenant_id: row.his_tenant_id,
+            appointment_enabled: row.appointment_enabled,
+            medical_record_return_enabled: row.medical_record_return_enabled,
             created_at: row.created_at,
             updated_at: row.updated_at,
         })

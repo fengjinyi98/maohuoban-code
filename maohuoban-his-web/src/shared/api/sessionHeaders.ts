@@ -1,14 +1,9 @@
-import { readSession } from "../auth/sessionStorage";
+import { authHeaders } from "../auth/sessionStorage";
 
 // sessionHeaders 当前操作上下文请求头
 // 核心职责：
-// - 将 mock session 传给 MSW 生成审计记录
-// - 后续真实后端接入时替换为 token 头
+// - 返回真实后端 Bearer token 请求头
+// - 让写入类操作复用统一鉴权来源
 export function sessionHeaders(): Record<string, string> {
-  const session = readSession();
-  return session
-    ? {
-        "x-mhb-session": encodeURIComponent(JSON.stringify(session)),
-      }
-    : {};
+  return authHeaders();
 }

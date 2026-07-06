@@ -7,26 +7,26 @@ import { usePatientListViewModel } from "../view-models/usePatientListViewModel"
 // NewPatientPage 新建患者页
 // 核心职责：
 // - 采集宠物和主人基础信息
-// - mock 提交后进入患者详情
+// - 通过真实后端患者写入接口完成建档
 export function NewPatientPage() {
   const navigate = useNavigate();
   const vm = usePatientListViewModel("");
   const [form, setForm] = useState<
     Omit<PetPatient, "id" | "medicalRecordNo" | "lastVisitAt">
   >({
-    name: "小栗子",
+    name: "",
     species: "猫" as const,
-    breed: "田园猫",
-    ageText: "1岁",
-    sex: "雌性",
-    weightKg: 3.4,
-    ownerId: "new-owner",
-    ownerName: "新主人",
-    ownerPhone: "13800019999",
+    breed: "",
+    ageText: "",
+    sex: "",
+    weightKg: 0,
+    ownerId: "",
+    ownerName: "",
+    ownerPhone: "",
     allergies: [] as string[],
     chronicDiseases: [] as string[],
     currentMedications: [] as string[],
-    notes: "首次建档。",
+    notes: "",
   });
 
   async function submit() {

@@ -18,7 +18,6 @@
     "@heroui/styles": "^3.2.1",
     "@tanstack/react-query": "^5.101.0",
     "lucide-react": "^1.21.0",
-    "msw": "^2.14.6",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.18.0",
@@ -47,10 +46,5 @@
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
     "vitest": "^4.1.9"
-  },
-  "msw": {
-    "workerDirectory": [
-      "public"
-    ]
   }
 }

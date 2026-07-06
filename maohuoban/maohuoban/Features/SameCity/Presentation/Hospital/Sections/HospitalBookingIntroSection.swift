@@ -4,7 +4,7 @@ import MaohuobanDesignSystem
 // HospitalBookingIntroSection 医院预约头部说明
 // 核心职责：
 // - 展示当前预约城市
-// - 说明预约会绑定当前宠物档案
+// - 说明预约会进入合作 HIS 闭环
 struct HospitalBookingIntroSection: View {
     let city: String
 
@@ -18,10 +18,10 @@ struct HospitalBookingIntroSection: View {
                 .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s2) {
-                Text("\(city)医院预约")
+                Text("\(city)合作医院")
                     .font(MHBTheme.Typography.title)
                     .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
-                Text("预约结果会关联当前宠物，后续就诊记录可回流到时间线")
+                Text("这些医院已接入毛伙伴 HIS，可接收诊前资料包并支持病历回流")
                     .font(MHBTheme.Typography.callout)
                     .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
             }

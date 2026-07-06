@@ -193,7 +193,7 @@ final class HomeMockDashboardFixturesTests: XCTestCase {
                 ),
                 HomeDashboardSnapshot.Action(
                     kind: .bookHospital,
-                    title: "预约医院",
+                    title: "预约合作医院",
                     subtitle: nil
                 )
             ],

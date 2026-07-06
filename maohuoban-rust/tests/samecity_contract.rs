@@ -125,11 +125,83 @@ async fn login_user_id(app: &maohuoban_rust::test_support::AuthTestApp, phone: &
     user_id
 }
 
+/// seed_his_partner_hospital 写入测试隔离合作医院
+/// 核心职责：
+/// - 为同城契约测试准备可预约 HIS 医院
+/// - 避免依赖迁移或主开发库里的业务数据
+async fn seed_his_partner_hospital(
+    app: &maohuoban_rust::test_support::AuthTestApp,
+    name: &str,
+) -> (uuid::Uuid, uuid::Uuid) {
+    let his_tenant_id = uuid::Uuid::new_v4();
+    let hospital_id = uuid::Uuid::new_v4();
+    sqlx::query(
+        r#"
+        INSERT INTO his_hospital_tenants (
+            id,
+            name,
+            tenant_tier,
+            status
+        )
+        VALUES ($1, $2, 'standard_saas', 'active')
+        "#,
+    )
+    .bind(his_tenant_id)
+    .bind(name)
+    .execute(app.pool())
+    .await
+    .expect("insert his tenant");
+
+    sqlx::query(
+        r#"
+        INSERT INTO samecity_hospitals (
+            id,
+            name,
+            city,
+            district,
+            address,
+            phone,
+            service_tags,
+            verification_status,
+            partnership_status,
+            his_enabled,
+            his_tenant_id,
+            appointment_enabled,
+            medical_record_return_enabled
+        )
+        VALUES (
+            $1,
+            $2,
+            '成都',
+            '高新区',
+            '成都市高新区测试街 2 号',
+            '028-88880001',
+            ARRAY['异常接诊', '病历回流']::text[],
+            'verified',
+            'active',
+            true,
+            $3,
+            true,
+            true
+        )
+        "#,
+    )
+    .bind(hospital_id)
+    .bind(name)
+    .bind(his_tenant_id)
+    .execute(app.pool())
+    .await
+    .expect("insert his hospital");
+
+    (hospital_id, his_tenant_id)
+}
+
 #[tokio::test]
 async fn samecity_hospital_list_returns_verified_city_hospitals() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let user_id = login_user_id(&app, "13800138119").await;
+    let (expected_hospital_id, _) = seed_his_partner_hospital(&app, "毛伙伴闭环验证医院").await;
 
     let response = app
         .router()
@@ -146,15 +218,112 @@ async fn samecity_hospital_list_returns_verified_city_hospitals() {
     assert_eq!(body["success"], true);
     assert_eq!(body["code"], "samecity.hospitals_loaded");
     assert_eq!(body["data"]["city"], "成都");
+    assert_eq!(
+        body["data"]["hospitals"][0]["id"],
+        expected_hospital_id.to_string()
+    );
     assert_eq!(body["data"]["hospitals"][0]["city"], "成都");
     assert_eq!(
         body["data"]["hospitals"][0]["verification_status"],
         "verified"
     );
+    assert_eq!(body["data"]["hospitals"][0]["partnership_status"], "active");
+    assert_eq!(body["data"]["hospitals"][0]["his_enabled"], true);
+    assert_eq!(body["data"]["hospitals"][0]["appointment_enabled"], true);
+    assert_eq!(
+        body["data"]["hospitals"][0]["medical_record_return_enabled"],
+        true
+    );
     let hospital_id = body["data"]["hospitals"][0]["id"]
         .as_str()
         .expect("hospital id");
     uuid::Uuid::parse_str(hospital_id).expect("hospital id should be uuid");
+}
+
+#[tokio::test]
+async fn samecity_hospital_list_returns_only_his_partner_hospitals() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138121").await;
+
+    let non_his_hospital_id = uuid::Uuid::new_v4();
+    let (his_hospital_id, his_tenant_id) =
+        seed_his_partner_hospital(&app, "毛伙伴闭环验证医院").await;
+
+    sqlx::query(
+        r#"
+        INSERT INTO samecity_hospitals (
+            id,
+            name,
+            city,
+            district,
+            address,
+            service_tags,
+            verification_status,
+            partnership_status,
+            his_enabled,
+            his_tenant_id,
+            appointment_enabled,
+            medical_record_return_enabled
+        )
+        VALUES
+            (
+                $1,
+                '只认证未接入 HIS 的医院',
+                '成都',
+                '高新区',
+                '成都市高新区测试街 1 号',
+                ARRAY['体检']::text[],
+                'verified',
+                'candidate',
+                false,
+                NULL,
+                true,
+                false
+            )
+        "#,
+    )
+    .bind(non_his_hospital_id)
+    .execute(app.pool())
+    .await
+    .expect("insert hospitals");
+
+    let response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            "/api/v1/same-city/hospitals?city=成都",
+            Some(&user_id),
+        ))
+        .await
+        .expect("list hospitals");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    let hospitals = body["data"]["hospitals"]
+        .as_array()
+        .expect("hospitals array");
+    assert!(
+        hospitals
+            .iter()
+            .all(|hospital| hospital["id"] != non_his_hospital_id.to_string()),
+        "non-HIS verified hospital must not enter App booking list: {hospitals:?}"
+    );
+    assert!(
+        hospitals
+            .iter()
+            .any(|hospital| hospital["id"] == his_hospital_id.to_string()),
+        "HIS partner hospital should enter App booking list: {hospitals:?}"
+    );
+    let his_hospital = hospitals
+        .iter()
+        .find(|hospital| hospital["id"] == his_hospital_id.to_string())
+        .expect("his hospital in response");
+    assert_eq!(his_hospital["partnership_status"], "active");
+    assert_eq!(his_hospital["his_enabled"], true);
+    assert_eq!(his_hospital["appointment_enabled"], true);
+    assert_eq!(his_hospital["medical_record_return_enabled"], true);
+    assert_eq!(his_hospital["his_tenant_id"], his_tenant_id.to_string());
 }
 
 #[tokio::test]
@@ -184,6 +353,7 @@ async fn samecity_hospital_booking_creates_pending_appointment_for_current_pet()
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
     let user_id = login_user_id(&app, "13800138120").await;
+    seed_his_partner_hospital(&app, "毛伙伴闭环验证医院").await;
 
     let create_pet_response = app
         .router()
@@ -251,4 +421,70 @@ async fn samecity_hospital_booking_creates_pending_appointment_for_current_pet()
     assert_eq!(body["data"]["status"], "pending");
     let appointment_id = body["data"]["id"].as_str().expect("appointment id");
     uuid::Uuid::parse_str(appointment_id).expect("appointment id should be uuid");
+}
+
+#[tokio::test]
+async fn samecity_hospital_booking_rejects_non_his_partner_hospital() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138122").await;
+
+    let hospital_id = uuid::Uuid::new_v4();
+    sqlx::query(
+        r#"
+        INSERT INTO samecity_hospitals (
+            id,
+            name,
+            city,
+            district,
+            address,
+            service_tags,
+            verification_status,
+            partnership_status,
+            his_enabled,
+            his_tenant_id,
+            appointment_enabled,
+            medical_record_return_enabled
+        )
+        VALUES (
+            $1,
+            '认证但未接入 HIS 的医院',
+            '成都',
+            '高新区',
+            '成都市高新区测试街 3 号',
+            ARRAY['体检']::text[],
+            'verified',
+            'candidate',
+            false,
+            NULL,
+            true,
+            false
+        )
+        "#,
+    )
+    .bind(hospital_id)
+    .execute(app.pool())
+    .await
+    .expect("insert non his hospital");
+
+    let response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/same-city/hospital-appointments",
+            json!({
+                "hospital_id": hospital_id,
+                "scheduled_at": "2026-06-15T09:30:00Z",
+                "reason": "基础体检",
+                "note": "绕过列表直接提交"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("book hospital");
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let body = response_json(response).await;
+    assert_eq!(body["success"], false);
+    assert_eq!(body["code"], "samecity.hospital_not_found");
 }

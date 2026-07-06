@@ -15,4 +15,5 @@ export interface LoginResult {
 export interface ContextOptions {
   tenants: HospitalTenant[];
   sites: HospitalSite[];
+  members?: HospitalMember[];
 }

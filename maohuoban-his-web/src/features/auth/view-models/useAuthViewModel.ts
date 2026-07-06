@@ -9,9 +9,10 @@ import {
 
 // useAuthViewModel 登录和上下文选择状态
 // 核心职责：
-// - 处理 mock 登录和 session 持久化
+// - 处理真实后端登录和 session 持久化
 // - 处理医院、院区和角色选择
 export function useAuthViewModel() {
+  const session = readSession();
   const loginMutation = useMutation({
     mutationFn: ({
       account,
@@ -45,12 +46,13 @@ export function useAuthViewModel() {
   const contextOptionsQuery = useQuery({
     queryKey: ["auth", "context-options"],
     queryFn: getContextOptions,
+    enabled: Boolean(session?.accessToken),
   });
 
   return {
     loginMutation,
     contextMutation,
     contextOptionsQuery,
-    session: readSession(),
+    session,
   };
 }

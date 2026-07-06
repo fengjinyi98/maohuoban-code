@@ -23,7 +23,7 @@ final class SameCityRepositoryTests: XCTestCase {
                 {
                   "success": true,
                   "code": "samecity.hospitals_loaded",
-                  "message": "同城医院已加载",
+                  "message": "合作医院已加载",
                   "data": {
                     "city": "成都",
                     "hospitals": [
@@ -35,7 +35,12 @@ final class SameCityRepositoryTests: XCTestCase {
                         "address": "成都市高新区天府大道中段 88 号",
                         "phone": "028-88880001",
                         "service_tags": ["体检", "疫苗", "复诊"],
-                        "verification_status": "verified"
+                        "verification_status": "verified",
+                        "partnership_status": "active",
+                        "his_enabled": true,
+                        "his_tenant_id": "tenant-1",
+                        "appointment_enabled": true,
+                        "medical_record_return_enabled": true
                       }
                     ]
                   }
@@ -57,10 +62,15 @@ final class SameCityRepositoryTests: XCTestCase {
         let requestURL = try XCTUnwrap(request.url)
         let components = try XCTUnwrap(URLComponents(url: requestURL, resolvingAgainstBaseURL: false))
         XCTAssertEqual(components.queryItems?.first(where: { $0.name == "city" })?.value, "成都")
-        XCTAssertEqual(response.message, "同城医院已加载")
+        XCTAssertEqual(response.message, "合作医院已加载")
         XCTAssertEqual(response.data?.city, "成都")
         XCTAssertEqual(response.data?.hospitals.first?.name, "瑞派宠物医院高新院区")
         XCTAssertEqual(response.data?.hospitals.first?.verificationStatus, .verified)
+        XCTAssertEqual(response.data?.hospitals.first?.partnershipStatus, .active)
+        XCTAssertEqual(response.data?.hospitals.first?.hisEnabled, true)
+        XCTAssertEqual(response.data?.hospitals.first?.hisTenantID, "tenant-1")
+        XCTAssertEqual(response.data?.hospitals.first?.appointmentEnabled, true)
+        XCTAssertEqual(response.data?.hospitals.first?.medicalRecordReturnEnabled, true)
     }
 
     func testBookHospitalAppointmentSendsDraftAndUserContext() async throws {

@@ -2,7 +2,7 @@ import Foundation
 
 // SameCityHospitalList 同城医院列表
 // 核心职责：
-// - 承接后端按城市筛选的医院列表
+// - 承接后端按城市筛选的 HIS 合作医院列表
 // - 为首页预约和同城页共用医院选择数据
 struct SameCityHospitalList: Decodable, Equatable {
     let city: String
@@ -11,8 +11,8 @@ struct SameCityHospitalList: Decodable, Equatable {
 
 // SameCityHospital 同城医院摘要
 // 核心职责：
-// - 表达可预约医院的基础展示字段
-// - 保留服务标签和认证状态供后续排序筛选扩展
+// - 表达可预约合作医院的基础展示字段
+// - 保留 HIS 接入和病历回流能力供页面展示
 struct SameCityHospital: Decodable, Equatable, Identifiable {
     let id: String
     let name: String
@@ -22,6 +22,11 @@ struct SameCityHospital: Decodable, Equatable, Identifiable {
     let phone: String?
     let serviceTags: [String]
     let verificationStatus: SameCityVerificationStatus
+    let partnershipStatus: SameCityPartnershipStatus
+    let hisEnabled: Bool
+    let hisTenantID: String?
+    let appointmentEnabled: Bool
+    let medicalRecordReturnEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -32,17 +37,32 @@ struct SameCityHospital: Decodable, Equatable, Identifiable {
         case phone
         case serviceTags = "service_tags"
         case verificationStatus = "verification_status"
+        case partnershipStatus = "partnership_status"
+        case hisEnabled = "his_enabled"
+        case hisTenantID = "his_tenant_id"
+        case appointmentEnabled = "appointment_enabled"
+        case medicalRecordReturnEnabled = "medical_record_return_enabled"
     }
 }
 
 // SameCityVerificationStatus 同城实体认证状态
 // 核心职责：
 // - 固定医院认证状态契约
-// - 支持首页优先展示已认证医院
+// - 支持后端区分普通认证和 HIS 合作能力
 enum SameCityVerificationStatus: String, Codable, Equatable {
     case pending
     case verified
     case rejected
+    case suspended
+}
+
+// SameCityPartnershipStatus 合作医院状态
+// 核心职责：
+// - 区分候选医院和已接入闭环的合作医院
+// - 支撑预约入口展示 HIS 合作语义
+enum SameCityPartnershipStatus: String, Codable, Equatable {
+    case candidate
+    case active
     case suspended
 }
 

@@ -7,6 +7,7 @@ export const roleLabels: Record<Role, string> = {
   frontdesk: "前台",
   pharmacy: "药房",
   finance: "财务",
+  admin: "管理员",
 };
 
 export const rolePermissions: Record<Role, Permission[]> = {
@@ -65,6 +66,25 @@ export const rolePermissions: Record<Role, Permission[]> = {
     "billing.charge",
     "billing.refund",
     "audit.view",
+  ],
+  admin: [
+    "dashboard.view",
+    "patients.view",
+    "patients.create",
+    "encounters.view",
+    "encounters.edit",
+    "prescriptions.create",
+    "billing.view",
+    "billing.charge",
+    "billing.refund",
+    "pharmacy.view",
+    "pharmacy.dispense",
+    "inventory.manage",
+    "healthRecords.view",
+    "healthRecords.publish",
+    "audit.view",
+    "settings.view",
+    "staff.manage",
   ],
 };
 

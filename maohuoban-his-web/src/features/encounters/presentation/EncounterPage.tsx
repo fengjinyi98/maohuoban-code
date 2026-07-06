@@ -229,7 +229,7 @@ function EncounterEditor({ encounter, vm }: EncounterEditorProps) {
           </div>
         </div>
         <div className="mhb-card">
-          <strong>处方 mock</strong>
+          <strong>处方草稿</strong>
           <p style={{ color: "var(--mhb-muted)" }}>
             阿莫西林克拉维酸钾片 · 每日两次 · 口服 5 天。保存后生成待收费项。
           </p>

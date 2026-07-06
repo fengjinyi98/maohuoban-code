@@ -104,6 +104,35 @@ export function DashboardPage() {
         </div>
 
         <div className="mhb-queue-list">
+          {vm.data.appointments.map((appointment) => (
+            <Link
+              className="mhb-patient-card compact"
+              key={appointment.id}
+              to={`/patients/${appointment.patientId}`}
+            >
+              <div className="mhb-time-col">{appointment.startsAt}</div>
+              <span
+                className={`mhb-status-dot ${appointment.status === "arrived" ? "active" : "waiting"}`}
+              />
+              <div className="mhb-pet-avatar">{appointment.patientName[0]}</div>
+              <div className="mhb-patient-info">
+                <div>
+                  <strong>{appointment.patientName}</strong>
+                </div>
+                <span>主人：{appointment.ownerName}</span>
+              </div>
+              <div className="mhb-reason-col">
+                <CalendarClock size={14} />
+                {appointment.reason}
+              </div>
+              <HisStatusChip
+                tone={appointment.status === "arrived" ? "success" : "info"}
+              >
+                {appointment.status === "arrived" ? "已到院" : "已预约"}
+              </HisStatusChip>
+            </Link>
+          ))}
+
           {vm.data.encounters.map((encounter, index) => (
             <Link
               className={`mhb-patient-card${encounter.id === selectedEncounter?.id ? " selected" : ""}`}

@@ -20,7 +20,12 @@ final class HospitalBookingStoreTests: XCTestCase {
                     address: "成都市高新区天府大道中段 88 号",
                     phone: "028-88880001",
                     serviceTags: ["体检", "疫苗"],
-                    verificationStatus: .verified
+                    verificationStatus: .verified,
+                    partnershipStatus: .active,
+                    hisEnabled: true,
+                    hisTenantID: "tenant-1",
+                    appointmentEnabled: true,
+                    medicalRecordReturnEnabled: true
                 )
             ]
         )
@@ -28,7 +33,7 @@ final class HospitalBookingStoreTests: XCTestCase {
             MHBAPIResponse(
                 success: true,
                 code: "samecity.hospitals_loaded",
-                message: "同城医院已加载",
+                message: "合作医院已加载",
                 data: list
             )
         )

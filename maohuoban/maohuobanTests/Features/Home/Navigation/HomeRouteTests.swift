@@ -113,8 +113,8 @@ final class HomeRouteTests: XCTestCase {
     func testBookHospitalRouteCarriesPetAndCityContext() {
         let action = HomeDashboardSnapshot.Action(
             kind: .bookHospital,
-            title: "预约医院",
-            subtitle: "体检 / 复诊"
+            title: "预约合作医院",
+            subtitle: "HIS 病历回流"
         )
         let context = HomeActionRoutingContext(
             selectedPetID: "pet-1",

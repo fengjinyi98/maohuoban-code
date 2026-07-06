@@ -4,7 +4,8 @@ export type Role =
   | "assistant"
   | "frontdesk"
   | "pharmacy"
-  | "finance";
+  | "finance"
+  | "admin";
 
 export type Permission =
   | "dashboard.view"
@@ -75,6 +76,8 @@ export interface AuthSession {
   tenant?: HospitalTenant;
   site?: HospitalSite;
   role: Role;
+  accessToken?: string;
+  refreshToken?: string;
 }
 
 export interface OwnerProfile {
@@ -238,6 +241,13 @@ export interface DashboardToday {
 }
 
 export interface ApiErrorPayload {
-  code: "UNAUTHORIZED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "INTERNAL";
+  code: string;
   message: string;
+}
+
+export interface BackendEnvelope<T> {
+  success: boolean;
+  code: string;
+  message: string;
+  data: T;
 }

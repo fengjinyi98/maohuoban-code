@@ -1,6 +1,6 @@
 # maohuoban-his-web
 
-毛伙伴医院端 Web HIS 前端工程，用 mock 数据跑通医院账号登录、权限导航、今日工作台、宠物患者、接诊病历、收费、药房、健康档案发布和授权审计。
+毛伙伴医院端 Web HIS 前端工程，连接 Rust 后端和开发库真实 HIS 数据，跑通医院员工登录、合作医院上下文、预约队列、宠物患者和后续接诊病历回流入口。
 
 ## 技术栈
 
@@ -11,7 +11,6 @@
 | UI         | React + HeroUI v3 + Tailwind CSS v4 |
 | 路由       | React Router                        |
 | 服务端状态 | TanStack Query                      |
-| Mock       | MSW                                 |
 | 测试       | Vitest + Playwright                 |
 
 ## 运行
@@ -22,6 +21,14 @@ pnpm dev
 ```
 
 默认地址：`http://127.0.0.1:5173/`
+
+默认后端：通过 Vite `/api` 同源代理连接 `http://127.0.0.1:8080`
+
+可通过环境变量覆盖：
+
+```bash
+VITE_API_BASE_URL=http://127.0.0.1:8080 pnpm dev
+```
 
 ## 验证
 
@@ -34,21 +41,14 @@ pnpm build
 pnpm test:e2e
 ```
 
-## Mock 账号
+## 开发库验证账号
 
-| 账号                 | 角色 |
-| -------------------- | ---- |
-| `owner@mhb.test`     | 院长 |
-| `doctor@mhb.test`    | 医生 |
-| `frontdesk@mhb.test` | 前台 |
-| `pharmacy@mhb.test`  | 药房 |
-| `finance@mhb.test`   | 财务 |
-
-任意密码均可进入 mock 登录流程。
+| 手机号        | 密码           | 角色 |
+| ------------- | -------------- | ---- |
+| `13900000001` | `Maohuoban@123` | 医生 |
 
 ## 交付文档
 
 | 文档                                                        | 用途                                  |
 | ----------------------------------------------------------- | ------------------------------------- |
-| `docs/mock-api-contract.md`                                 | 前端 mock API contract 和后端接入边界 |
 | `../docs/engineering/web-his/01_Web_HIS前端Goal进度追踪.md` | 7 个阶段完成记录和验证结果            |

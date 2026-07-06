@@ -12,7 +12,7 @@ export function PharmacyPage() {
   return (
     <HisPageShell
       title="药房库存"
-      description="药房确认批号、完成发药并扣减 mock 库存。"
+      description="药房确认批号、完成发药并扣减真实库存。"
     >
       <div className="mhb-grid mhb-grid-2">
         <section className="mhb-card">

@@ -2,7 +2,7 @@ import Foundation
 
 // SameCityRepository 同城仓库协议
 // 核心职责：
-// - 定义同城医院列表和预约 API
+// - 定义合作医院列表和预约 API
 // - 隔离 HTTP 客户端和页面状态
 protocol SameCityRepository {
     func listHospitals(
@@ -18,7 +18,7 @@ protocol SameCityRepository {
 
 // DefaultSameCityRepository 默认同城仓库
 // 核心职责：
-// - 使用 MHBHTTPClient 调用 Rust 同城接口
+// - 使用 MHBHTTPClient 调用 Rust 合作医院接口
 // - 在请求中传递当前用户上下文
 struct DefaultSameCityRepository: SameCityRepository {
     private let client: MHBHTTPClient

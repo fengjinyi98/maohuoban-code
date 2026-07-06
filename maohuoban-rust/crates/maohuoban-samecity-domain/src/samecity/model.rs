@@ -18,6 +18,11 @@ pub struct Hospital {
     pub phone: Option<String>,
     pub service_tags: Vec<String>,
     pub verification_status: VerificationStatus,
+    pub partnership_status: HospitalPartnershipStatus,
+    pub his_enabled: bool,
+    pub his_tenant_id: Option<Uuid>,
+    pub appointment_enabled: bool,
+    pub medical_record_return_enabled: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -58,6 +63,44 @@ impl TryFrom<&str> for VerificationStatus {
             "suspended" => Ok(Self::Suspended),
             _ => Err(SameCityError::Infrastructure(
                 "unknown verification status from database".to_owned(),
+            )),
+        }
+    }
+}
+
+/// HospitalPartnershipStatus 医院合作状态
+/// 核心职责：
+/// - 区分普通认证医院和已接入闭环的合作医院
+/// - 支撑 App 预约入口只展示可 HIS 回流的医院
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum HospitalPartnershipStatus {
+    Candidate,
+    Active,
+    Suspended,
+}
+
+impl HospitalPartnershipStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Candidate => "candidate",
+            Self::Active => "active",
+            Self::Suspended => "suspended",
+        }
+    }
+}
+
+impl TryFrom<&str> for HospitalPartnershipStatus {
+    type Error = SameCityError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "candidate" => Ok(Self::Candidate),
+            "active" => Ok(Self::Active),
+            "suspended" => Ok(Self::Suspended),
+            _ => Err(SameCityError::Infrastructure(
+                "unknown partnership status from database".to_owned(),
             )),
         }
     }

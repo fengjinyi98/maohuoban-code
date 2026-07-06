@@ -4,7 +4,7 @@ import MaohuobanDesignSystem
 
 // HospitalBookingScreen 医院预约页面
 // 核心职责：
-// - 按城市读取可预约医院列表
+// - 按城市读取可预约 HIS 合作医院列表
 // - 为当前宠物提交医院预约请求
 struct HospitalBookingScreen: View {
     let currentUserID: String?
@@ -41,7 +41,7 @@ struct HospitalBookingScreen: View {
             .padding(MHBTheme.Spacing.s4)
         }
         .background(MHBTheme.ColorToken.background.color)
-        .navigationTitle("预约医院")
+        .navigationTitle("预约合作医院")
         .navigationBarTitleDisplayMode(.inline)
         .scrollEdgeEffectStyle(.soft, for: .top)
         .task(id: taskID) {

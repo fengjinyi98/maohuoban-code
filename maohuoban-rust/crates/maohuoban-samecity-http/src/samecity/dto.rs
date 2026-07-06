@@ -72,6 +72,11 @@ struct HospitalData {
     phone: Option<String>,
     service_tags: Vec<String>,
     verification_status: String,
+    partnership_status: String,
+    his_enabled: bool,
+    his_tenant_id: Option<Uuid>,
+    appointment_enabled: bool,
+    medical_record_return_enabled: bool,
 }
 
 impl From<Hospital> for HospitalData {
@@ -85,6 +90,11 @@ impl From<Hospital> for HospitalData {
             phone: hospital.phone,
             service_tags: hospital.service_tags,
             verification_status: hospital.verification_status.as_str().to_owned(),
+            partnership_status: hospital.partnership_status.as_str().to_owned(),
+            his_enabled: hospital.his_enabled,
+            his_tenant_id: hospital.his_tenant_id,
+            appointment_enabled: hospital.appointment_enabled,
+            medical_record_return_enabled: hospital.medical_record_return_enabled,
         }
     }
 }

@@ -19,11 +19,11 @@ pub struct BookHospitalAppointmentInput {
 
 /// SameCityRepository 同城仓储端口
 /// 核心职责：
-/// - 查询同城可信医院实体
+/// - 查询同城可预约 HIS 合作医院实体
 /// - 创建用户医院预约并校验宠物归属
 #[async_trait]
 pub trait SameCityRepository: Send + Sync {
-    async fn list_verified_hospitals(&self, city: &str) -> SameCityResult<Vec<Hospital>>;
+    async fn list_bookable_partner_hospitals(&self, city: &str) -> SameCityResult<Vec<Hospital>>;
 
     async fn create_hospital_appointment(
         &self,

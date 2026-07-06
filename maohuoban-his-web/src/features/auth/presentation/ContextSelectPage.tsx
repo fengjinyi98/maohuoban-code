@@ -6,18 +6,10 @@ import { readSession } from "../../../shared/auth/sessionStorage";
 import { roleLabels } from "../../../shared/permissions/permissions";
 import { useAuthViewModel } from "../view-models/useAuthViewModel";
 
-const switchableRoles: Role[] = [
-  "owner",
-  "doctor",
-  "frontdesk",
-  "pharmacy",
-  "finance",
-];
-
 // ContextSelectPage 医院上下文选择页
 // 核心职责：
 // - 选择当前医院租户和院区
-// - 支持开发阶段快速切换角色
+// - 使用后端返回的真实员工角色
 export function ContextSelectPage() {
   const navigate = useNavigate();
   const { contextMutation, contextOptionsQuery } = useAuthViewModel();
@@ -29,7 +21,7 @@ export function ContextSelectPage() {
   }, [contextOptionsQuery.data?.sites, session?.member.siteIds]);
   const [tenantId, setTenantId] = useState(session?.member.tenantId ?? "");
   const [siteId, setSiteId] = useState("");
-  const [role, setRole] = useState<Role>(session?.role ?? "doctor");
+  const [role] = useState<Role>(session?.role ?? "doctor");
 
   const selectedTenantId =
     tenantId || session?.member.tenantId || allTenants[0]?.id || "";
@@ -57,7 +49,7 @@ export function ContextSelectPage() {
         <Card.Header>
           <Card.Title>选择医院工作上下文</Card.Title>
           <Card.Description>
-            当前 mock 阶段支持租户、院区和角色快速切换。
+            当前账号只能进入已绑定的 HIS 医院租户和合作医院院区。
           </Card.Description>
         </Card.Header>
         <Card.Content className="mhb-grid">
@@ -91,17 +83,7 @@ export function ContextSelectPage() {
           </label>
           <label className="mhb-field">
             <span>角色</span>
-            <select
-              className="mhb-input"
-              value={role}
-              onChange={(event) => setRole(event.target.value as Role)}
-            >
-              {switchableRoles.map((item) => (
-                <option key={item} value={item}>
-                  {roleLabels[item]}
-                </option>
-              ))}
-            </select>
+            <input className="mhb-input" value={roleLabels[role]} disabled />
           </label>
         </Card.Content>
         <Card.Footer>

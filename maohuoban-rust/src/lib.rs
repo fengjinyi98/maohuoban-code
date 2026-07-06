@@ -71,6 +71,7 @@ use crate::infrastructure::ai::{
     PetServiceFoodInventoryHintProvider, PetServiceHealthQuickFactProvider,
     PetServiceIdentityFactProvider, PetServiceObservationWriteProvider,
 };
+use crate::infrastructure::his::build_his_router;
 
 /// `BackendConfig` 后端启动配置
 /// 核心职责：
@@ -293,6 +294,7 @@ fn build_backend_router(parts: BackendRouterParts<'_>) -> Result<Router, Backend
         auth_middleware_state.clone(),
     );
     let protected_user_routes = build_protected_user_routes(
+        parts.pool.clone(),
         parts.home_service,
         parts.home_realtime_hub,
         parts.profile_service,
@@ -398,6 +400,7 @@ fn build_auth_routes(
 /// - 合并首页、用户资料、宠物和同城业务路由
 /// - 统一安装用户认证中间件
 fn build_protected_user_routes(
+    pool: PgPool,
     home_service: Arc<HomeDashboardService>,
     home_realtime_hub: HomeRealtimeHub,
     profile_service: Arc<ProfileService>,
@@ -409,6 +412,7 @@ fn build_protected_user_routes(
         .merge(build_profile_router(profile_service))
         .merge(build_pet_router(pet_service))
         .merge(build_samecity_router(samecity_service))
+        .merge(build_his_router(pool))
         .route_layer(middleware::from_fn_with_state(
             auth_middleware_state,
             require_authenticated_user,

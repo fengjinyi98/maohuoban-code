@@ -105,7 +105,7 @@ struct HospitalBookingFormSection: View {
 
 // HospitalBookingSelectedHospitalSection 已选医院摘要
 // 核心职责：
-// - 展示当前选中医院地址和服务标签
+// - 展示当前选中合作医院地址和 HIS 能力
 // - 帮助用户确认预约对象
 struct HospitalBookingSelectedHospitalSection: View {
     let hospital: SameCityHospital?
@@ -119,8 +119,35 @@ struct HospitalBookingSelectedHospitalSection: View {
                 Text(hospital.serviceTags.formatted())
                     .font(MHBTheme.Typography.caption)
                     .foregroundStyle(MHBTheme.ColorToken.labelTertiary.color)
+                HStack(spacing: MHBTheme.Spacing.s2) {
+                    if hospital.hisEnabled {
+                        HospitalBookingCapabilityLabel(title: "已接入 HIS", systemImage: "checkmark.seal.fill")
+                    }
+                    if hospital.medicalRecordReturnEnabled {
+                        HospitalBookingCapabilityLabel(title: "支持病历回流", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                }
             }
         }
+    }
+}
+
+// HospitalBookingCapabilityLabel 合作医院能力标签
+// 核心职责：
+// - 展示后端下发的 HIS 合作能力
+// - 保持预约表单内的轻量状态反馈
+struct HospitalBookingCapabilityLabel: View {
+    let title: LocalizedStringResource
+    let systemImage: String
+
+    var body: some View {
+        Label(title, systemImage: systemImage)
+            .font(MHBTheme.Typography.caption)
+            .foregroundStyle(MHBTheme.ColorToken.success.color)
+            .padding(.horizontal, MHBTheme.Spacing.s2)
+            .padding(.vertical, MHBTheme.Spacing.s1)
+            .background(MHBTheme.ColorToken.success.color.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: MHBTheme.Radius.small, style: .continuous))
     }
 }
 

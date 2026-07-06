@@ -28,8 +28,8 @@ export function AppLayout() {
       items: group.items.filter((item) => hasPermission(role, item.permission)),
     }))
     .filter((group) => group.items.length > 0);
-  const tenantName = session?.tenant?.name ?? "瑞派宠物医院";
-  const siteName = session?.site?.name ?? "总院";
+  const tenantName = session?.tenant?.name ?? "未选择医院";
+  const siteName = session?.site?.name ?? "未选择院区";
   const tenantTier =
     session?.tenant?.tier === "dedicated_tenant" ? "独立租户" : "标准租户";
   const userInitial = session?.member.name.slice(0, 1) ?? "医";

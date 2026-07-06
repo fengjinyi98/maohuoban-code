@@ -21,9 +21,14 @@ impl SameCityService {
         Self { repository }
     }
 
-    pub async fn list_verified_hospitals(&self, city: &str) -> SameCityResult<Vec<Hospital>> {
+    pub async fn list_bookable_partner_hospitals(
+        &self,
+        city: &str,
+    ) -> SameCityResult<Vec<Hospital>> {
         validate_text("城市", city)?;
-        self.repository.list_verified_hospitals(city.trim()).await
+        self.repository
+            .list_bookable_partner_hospitals(city.trim())
+            .await
     }
 
     pub async fn create_hospital_appointment(
