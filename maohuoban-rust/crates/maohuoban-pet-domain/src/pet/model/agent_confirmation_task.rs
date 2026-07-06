@@ -33,6 +33,7 @@ pub enum ConfirmationTaskKind {
     DietChangeConfirmation,
     SymptomFollowup,
     AbnormalSymptomCreation,
+    AbnormalRecovery,
     RiskContextConfirmation,
 }
 
@@ -65,6 +66,10 @@ mod tests {
             "\"abnormal_symptom_creation\""
         );
         assert_eq!(
+            serde_json::to_string(&ConfirmationTaskKind::AbnormalRecovery).unwrap(),
+            "\"abnormal_recovery\""
+        );
+        assert_eq!(
             serde_json::to_string(&ConfirmationTaskKind::RiskContextConfirmation).unwrap(),
             "\"risk_context_confirmation\""
         );
@@ -83,6 +88,10 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<ConfirmationTaskKind>("\"abnormal_symptom_creation\"").unwrap(),
             ConfirmationTaskKind::AbnormalSymptomCreation
+        );
+        assert_eq!(
+            serde_json::from_str::<ConfirmationTaskKind>("\"abnormal_recovery\"").unwrap(),
+            ConfirmationTaskKind::AbnormalRecovery
         );
         assert_eq!(
             serde_json::from_str::<ConfirmationTaskKind>("\"risk_context_confirmation\"").unwrap(),

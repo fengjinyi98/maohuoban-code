@@ -19,10 +19,11 @@ use axum::{
 use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::ports::{
     AbnormalFollowupPlanProvider, AiSessionRepository, ChatTurnTransactionPort,
-    FoodInventoryHintProvider, LlmProvider, MemoryRepository, PetAbnormalEpisodeFactProvider,
-    PetAbnormalSymptomCreationProvider, PetDietConfirmationCandidateProvider, PetDietFactProvider,
-    PetHealthQuickFactProvider, PetIdentityFactProvider, PetObservationWriteProvider,
-    SessionSummaryRepository, SessionTurnRepository,
+    FoodInventoryHintProvider, HomeRealtimeEventPublisher, LlmProvider, MemoryRepository,
+    PetAbnormalEpisodeFactProvider, PetAbnormalSymptomCreationProvider,
+    PetDietConfirmationCandidateProvider, PetDietFactProvider, PetHealthQuickFactProvider,
+    PetIdentityFactProvider, PetObservationWriteProvider, SessionSummaryRepository,
+    SessionTurnRepository,
 };
 use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
 use maohuoban_ai_application::ai::tools::ToolRegistry;
@@ -62,6 +63,7 @@ pub struct AiHttpState {
     pub observation_write_provider: Arc<dyn PetObservationWriteProvider>,
     pub abnormal_symptom_creation_provider: Arc<dyn PetAbnormalSymptomCreationProvider>,
     pub confirmation_task_repository: Arc<dyn AgentConfirmationTaskRepository>,
+    pub home_realtime_event_publisher: Arc<dyn HomeRealtimeEventPublisher>,
 }
 
 /// AiPetContextProviders AI 宠物上下文 provider 集合

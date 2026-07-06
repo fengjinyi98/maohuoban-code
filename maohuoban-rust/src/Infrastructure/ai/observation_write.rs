@@ -199,4 +199,146 @@ impl PetObservationWriteProvider for PetServiceObservationWriteProvider {
             event_id: event.id,
         })
     }
+
+    async fn prepare_abnormal_recovery_write(
+        &self,
+        actor_user_id: Uuid,
+        pet_id: Uuid,
+        recovery_note: String,
+        confirmation_question_text: Option<String>,
+        context: ObservationWriteContext,
+    ) -> PetResult<PreparedObservationWrite> {
+        if !context.is_abnormal_episode_followup() {
+            return Err(PetError::InvalidInput("缺少异常追踪上下文".to_owned()));
+        }
+        let confirmation_task_id = Uuid::new_v4();
+        let mut candidate_payload = serde_json::json!({
+            "event_kind": "health",
+            "event_subkind": "abnormal_recovery",
+            "recovery_note": recovery_note,
+            "actor_user_id": actor_user_id,
+            "source": "agent_assisted_recovery",
+        });
+        if let Some(episode_id) = context.abnormal_episode_id {
+            candidate_payload["episode_id"] = serde_json::json!(episode_id.to_string());
+        }
+        if let Some(agent_followup_id) = context.agent_followup_id {
+            candidate_payload["agent_followup_id"] =
+                serde_json::json!(agent_followup_id.to_string());
+        }
+        if let Some(source_hint_id) = context.source_hint_id {
+            candidate_payload["source_hint_id"] = serde_json::json!(source_hint_id.to_string());
+        }
+        let task = AgentConfirmationTask {
+            id: confirmation_task_id,
+            pet_id,
+            task_kind: ConfirmationTaskKind::AbnormalRecovery,
+            question_text: confirmation_question_text
+                .filter(|text| !text.trim().is_empty())
+                .unwrap_or_else(|| "是否确认将本次异常追踪标记为已恢复？".to_owned()),
+            candidate_payload: Some(candidate_payload),
+            source_hint_id: context.source_hint_id,
+            source_ref_type: Some("agent_proactive_followup".to_owned()),
+            source_ref_id: context.agent_followup_id,
+            status: ConfirmationTaskStatus::Pending,
+            answer_payload: None,
+            resolved_event_id: None,
+            created_at: Utc::now(),
+            resolved_at: None,
+        };
+        let saved = self.confirmation_tasks.create(task).await?;
+
+        Ok(PreparedObservationWrite {
+            confirmation: AiToolConfirmationRequirement {
+                confirmation_task_id: saved.id.to_string(),
+                tool_name: "commit_pet_abnormal_recovery_write".to_owned(),
+                question_text: saved.question_text,
+                args: serde_json::json!({
+                    "confirmation_task_id": saved.id,
+                    "pet_id": pet_id,
+                }),
+            },
+        })
+    }
+
+    async fn commit_abnormal_recovery_write(
+        &self,
+        actor_user_id: Uuid,
+        pet_id: Uuid,
+        confirmation_task_id: Uuid,
+    ) -> PetResult<CommittedObservationWrite> {
+        let task = self
+            .confirmation_tasks
+            .get_by_id(confirmation_task_id)
+            .await?;
+        if task.pet_id != pet_id
+            || task.status != ConfirmationTaskStatus::Pending
+            || task.task_kind != ConfirmationTaskKind::AbnormalRecovery
+        {
+            return Err(PetError::InvalidInput("确认任务不可用".to_owned()));
+        }
+        let payload = task
+            .candidate_payload
+            .clone()
+            .ok_or_else(|| PetError::InvalidInput("确认任务缺少候选载荷".to_owned()))?;
+        let recovery_note = payload
+            .get("recovery_note")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| PetError::InvalidInput("确认任务缺少恢复内容".to_owned()))?;
+        let episode_id = payload
+            .get("episode_id")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|value| Uuid::parse_str(value).ok());
+        let agent_followup_id = payload
+            .get("agent_followup_id")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|value| Uuid::parse_str(value).ok());
+        let source_hint_id = payload
+            .get("source_hint_id")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|value| Uuid::parse_str(value).ok());
+        let mut event_payload = serde_json::json!({
+            "recovery_note": recovery_note,
+            "source": "agent_assisted_recovery",
+            "confirmation_task_id": confirmation_task_id,
+        });
+        if let Some(episode_id) = episode_id {
+            event_payload["episode_id"] = serde_json::json!(episode_id.to_string());
+        }
+        if let Some(agent_followup_id) = agent_followup_id {
+            event_payload["agent_followup_id"] = serde_json::json!(agent_followup_id.to_string());
+        }
+        if let Some(source_hint_id) = source_hint_id {
+            event_payload["source_hint_id"] = serde_json::json!(source_hint_id.to_string());
+        }
+
+        let event = self
+            .pet
+            .create_pet_event(NewPetEvent {
+                pet_id,
+                actor_user_id,
+                event_kind: EventKind::Health,
+                event_subkind: Some("abnormal_recovery".to_owned()),
+                title: "恢复记录已写入".to_owned(),
+                summary: Some(recovery_note.to_owned()),
+                visibility: EventVisibility::Private,
+                event_payload,
+                occurred_at: Utc::now(),
+            })
+            .await?;
+
+        self.confirmation_tasks
+            .update_status(
+                confirmation_task_id,
+                "answered",
+                Some(serde_json::json!({ "committed": true })),
+                Some(event.id),
+            )
+            .await?;
+
+        Ok(CommittedObservationWrite {
+            confirmation_task_id,
+            event_id: event.id,
+        })
+    }
 }

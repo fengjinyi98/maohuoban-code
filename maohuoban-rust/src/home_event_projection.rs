@@ -13,6 +13,7 @@ pub(crate) fn timeline_event_summary(event: &PetEvent) -> HomeTimelineEvent {
         id: event.id.to_string(),
         route_event_id: None,
         event_kind: home_timeline_event_kind(event),
+        event_subkind: event.event_subkind.clone(),
         title: event.title.clone(),
         subtitle: event
             .summary
@@ -33,6 +34,7 @@ pub(crate) fn timeline_entry_summary(entry: &PetTimelineEntry) -> HomeTimelineEv
         id: entry.id.clone(),
         route_event_id: None,
         event_kind: home_timeline_entry_kind(entry),
+        event_subkind: entry.event_subkind.clone(),
         title: entry.title.clone(),
         subtitle: entry
             .summary

@@ -65,6 +65,7 @@ final class HomeDashboardDecodingTests: XCTestCase {
                   {
                     "id": "event-3",
                     "event_kind": "deworming",
+                    "event_subkind": "deworming",
                     "title": "内外驱虫",
                     "subtitle": "已完成本月驱虫",
                     "occurred_text": "2026-06-13",
@@ -108,6 +109,7 @@ final class HomeDashboardDecodingTests: XCTestCase {
         XCTAssertEqual(dashboard.reminders.first?.kind, .deworming)
         XCTAssertEqual(dashboard.reminders.first?.title, "内外驱虫")
         XCTAssertEqual(dashboard.recentTimeline.first?.eventKind, .deworming)
+        XCTAssertEqual(dashboard.recentTimeline.first?.eventSubkind, "deworming")
         XCTAssertEqual(dashboard.recentTimeline.first?.sourceLabel, "毛球更新")
         XCTAssertTrue(dashboard.galleryAlbums.isEmpty)
     }

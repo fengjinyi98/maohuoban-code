@@ -14,7 +14,36 @@ extension HomeDashboardSnapshot.TimelineEvent {
             return .homecoming
         }
 
+        if let structuredSemantic {
+            return structuredSemantic
+        }
+
         return inferredTimelineSemantic
+    }
+
+    private var structuredSemantic: HomeTimelineRecordSemantic? {
+        switch eventSubkind {
+        case "feeding":
+            .feeding
+        case "poop_normal":
+            .poopNormal
+        case "energy_normal":
+            .energyNormal
+        case "appetite_normal":
+            .appetiteNormal
+        case "weight":
+            .weight
+        case "deworming":
+            .deworming
+        case "vaccine":
+            .vaccine
+        case "symptom_followup", "abnormal_recovery", "abnormal_symptom", "clinic_visit_linked":
+            .abnormal
+        case .some:
+            nil
+        case .none:
+            nil
+        }
     }
 
     private var inferredTimelineSemantic: HomeTimelineRecordSemantic {

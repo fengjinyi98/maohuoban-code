@@ -238,6 +238,9 @@ fn build_planner_tool_registry(
                 .abnormal_symptom_creation_provider
                 .clone(),
             confirmation_task_repository: confirmation_tasks,
+            home_realtime_event_publisher: Arc::new(
+                maohuoban_ai_application::ai::ports::NoopHomeRealtimeEventPublisher,
+            ),
         },
         session_id,
         target_pet,

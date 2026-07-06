@@ -208,17 +208,22 @@ fn confirmation_task_preview(
     tool_name: &str,
     args: &serde_json::Value,
 ) -> AiConfirmationTaskPreview {
+    let (title, event_subkind) = match tool_name {
+        "prepare_pet_observation_write" => ("准备记录一条观察", "agent_observation_note"),
+        "prepare_pet_abnormal_symptom_creation" => ("准备创建异常追踪", "abnormal_symptom"),
+        "prepare_pet_abnormal_recovery_write" => ("准备标记异常恢复", "abnormal_recovery"),
+        _ => ("准备执行一项确认", "agent_confirmation"),
+    };
+    let note_key = match tool_name {
+        "prepare_pet_abnormal_recovery_write" => "recovery_note",
+        _ => "note",
+    };
     let note = args
-        .get("note")
+        .get(note_key)
         .and_then(serde_json::Value::as_str)
         .unwrap_or("待确认记录")
         .trim()
         .to_owned();
-    let (title, event_subkind) = match tool_name {
-        "prepare_pet_observation_write" => ("准备记录一条观察", "agent_observation_note"),
-        "prepare_pet_abnormal_symptom_creation" => ("准备创建异常追踪", "abnormal_symptom"),
-        _ => ("准备执行一项确认", "agent_confirmation"),
-    };
 
     AiConfirmationTaskPreview {
         title: title.to_owned(),

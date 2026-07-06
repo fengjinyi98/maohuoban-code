@@ -1,5 +1,6 @@
 use axum::http::StatusCode;
 use httpmock::{Mock, MockServer, prelude::HttpMockRequest};
+use maohuoban_home_http::home::HomeRealtimeEventKind;
 use serde_json::json;
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -494,6 +495,303 @@ async fn abnormal_followup_agent_confirmed_write_keeps_episode_context() {
             .await
             .expect("load agent followup status");
     assert_eq!(followup_status, "answered");
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn abnormal_followup_recovery_confirmation_marks_episode_recovered() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let server = MockServer::start();
+    let mut config = maohuoban_rust::BackendConfig::local_test();
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
+    let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
+    app.reset().await;
+    let actor_phone = "13800139067";
+    let access_token = login_and_get_token(&app, actor_phone, "ios-ai-abnormal-recovery").await;
+    let actor_user_id = current_user_id(app.pool(), actor_phone).await;
+    let pet_id = create_pet(&app, &access_token).await;
+    let (episode_id, initial_event_id) = create_abnormal_event(&app, &access_token, pet_id).await;
+    let fixture = AbnormalEpisodeFixture {
+        access_token,
+        pet_id,
+        episode_id,
+        initial_event_id,
+        followup_event_id: Uuid::new_v4(),
+        recovery_event_id: Uuid::new_v4(),
+    };
+    let (source_hint_id, agent_followup_id) = insert_due_agent_followup_hint(&app, &fixture).await;
+
+    let mut prepare_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("prepare_pet_abnormal_recovery_write")
+            .matches(request_without_tool_result);
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_prepare_recovery\",\"function\":{\"name\":\"prepare_pet_abnormal_recovery_write\",\"arguments\":\"{\\\"recovery_note\\\":\\\"团团精神已经恢复到平时状态，愿意走动。\\\",\\\"confirmation_question_text\\\":\\\"确认将这次异常追踪标记为已恢复吗？我会把恢复记录写入进展时间线，并关闭本次主动追踪。\\\"}\"}}]}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let prepare_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &fixture.access_token,
+            json!({
+                "message": "现在已经恢复了",
+                "surface": "home_private",
+                "selected_pet_id": fixture.pet_id.to_string(),
+                "chat_context_kind": "abnormal_episode_followup",
+                "abnormal_episode_id": fixture.episode_id.to_string(),
+                "source_hint_id": source_hint_id.to_string(),
+                "agent_followup_id": agent_followup_id.to_string()
+            }),
+        ))
+        .await
+        .expect("send abnormal recovery prepare request");
+
+    let prepare_status = prepare_response.status();
+    let prepare_text = response_text(prepare_response).await;
+    assert_eq!(prepare_status, StatusCode::OK, "{prepare_text}");
+    prepare_mock.assert();
+    let started = sse_event_data(&prepare_text, "message_started");
+    let chat_session_id = started["chat_session_id"]
+        .as_str()
+        .expect("chat session id")
+        .parse::<Uuid>()
+        .expect("chat session uuid");
+    let confirmation_event = sse_event_data(&prepare_text, "confirmation_task");
+    assert_eq!(
+        confirmation_event["question_text"].as_str(),
+        Some(
+            "确认将这次异常追踪标记为已恢复吗？我会把恢复记录写入进展时间线，并关闭本次主动追踪。"
+        )
+    );
+    let confirmation_task_id = confirmation_event["confirmation_task_id"]
+        .as_str()
+        .expect("confirmation task id")
+        .parse::<Uuid>()
+        .expect("confirmation task uuid");
+
+    let prepared_task: (String, serde_json::Value, Option<String>, Option<Uuid>) = sqlx::query_as(
+        r"
+            SELECT task_kind, candidate_payload, source_ref_type, source_ref_id
+            FROM agent_confirmation_tasks
+            WHERE id = $1
+            ",
+    )
+    .bind(confirmation_task_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load recovery confirmation task");
+    assert_eq!(prepared_task.0, "abnormal_recovery");
+    assert_eq!(prepared_task.1["event_subkind"], "abnormal_recovery");
+    assert_eq!(
+        prepared_task.1["episode_id"],
+        fixture.episode_id.to_string()
+    );
+    assert_eq!(prepared_task.1["source"], "agent_assisted_recovery");
+    assert_eq!(
+        prepared_task.1["agent_followup_id"],
+        agent_followup_id.to_string()
+    );
+    assert_eq!(prepared_task.2.as_deref(), Some("agent_proactive_followup"));
+    assert_eq!(prepared_task.3, Some(agent_followup_id));
+    prepare_mock.delete();
+
+    let mut home_realtime_events = app.subscribe_home_realtime();
+    let commit_answer_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains(confirmation_task_id.to_string())
+            .body_contains("后端已完成用户授权的异常恢复写入")
+            .body_contains("episode_status=recovered")
+            .matches(request_without_tool_result);
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"已把团团这次异常标记为恢复，并停止本次主动追踪。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":8,\"total_tokens\":20}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let commit_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            &format!("/api/v1/ai/confirmation-tasks/{confirmation_task_id}/approve/stream"),
+            &fixture.access_token,
+            json!({}),
+        ))
+        .await
+        .expect("send abnormal recovery commit request");
+
+    let commit_status = commit_response.status();
+    let commit_text = response_text(commit_response).await;
+    assert_eq!(commit_status, StatusCode::OK, "{commit_text}");
+    assert!(
+        commit_text.contains("已把团团这次异常标记为恢复，并停止本次主动追踪。"),
+        "{commit_text}"
+    );
+    commit_answer_mock.assert();
+
+    let realtime_event = tokio::time::timeout(
+        std::time::Duration::from_secs(1),
+        home_realtime_events.recv(),
+    )
+    .await
+    .expect("receive home realtime event")
+    .expect("home realtime event");
+    assert_eq!(realtime_event.actor_user_id, actor_user_id);
+    assert_eq!(realtime_event.pet_id, fixture.pet_id);
+    assert_eq!(realtime_event.hint_id, Some(source_hint_id));
+    assert_eq!(
+        realtime_event.kind,
+        HomeRealtimeEventKind::AttentionHintResolved
+    );
+    assert_eq!(realtime_event.source_ref_type, "agent_proactive_followup");
+    assert_eq!(realtime_event.source_ref_id, agent_followup_id);
+
+    let written_event: (String, serde_json::Value) = sqlx::query_as(
+        r"
+        SELECT event_subkind, event_payload
+        FROM pet_events
+        WHERE id = (
+            SELECT resolved_event_id
+            FROM agent_confirmation_tasks
+            WHERE id = $1
+        )
+        ",
+    )
+    .bind(confirmation_task_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load recovery event");
+    assert_eq!(written_event.0, "abnormal_recovery");
+    assert_eq!(
+        written_event.1["episode_id"],
+        fixture.episode_id.to_string()
+    );
+    assert_eq!(written_event.1["source"], "agent_assisted_recovery");
+
+    let written_event_id: Uuid = sqlx::query_scalar(
+        r"
+        SELECT resolved_event_id
+        FROM agent_confirmation_tasks
+        WHERE id = $1
+        ",
+    )
+    .bind(confirmation_task_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load written recovery event id");
+    let timeline_event = tokio::time::timeout(
+        std::time::Duration::from_secs(1),
+        home_realtime_events.recv(),
+    )
+    .await
+    .expect("receive home timeline realtime event")
+    .expect("home timeline realtime event");
+    assert_eq!(timeline_event.actor_user_id, actor_user_id);
+    assert_eq!(timeline_event.pet_id, fixture.pet_id);
+    assert_eq!(timeline_event.kind, HomeRealtimeEventKind::TimelineChanged);
+    assert_eq!(timeline_event.source_ref_type, "pet_event");
+    assert_eq!(timeline_event.source_ref_id, written_event_id);
+
+    let episode_projection: (
+        String,
+        Option<chrono::DateTime<chrono::Utc>>,
+        Option<Uuid>,
+        Option<chrono::DateTime<chrono::Utc>>,
+    ) = sqlx::query_as(
+        r"
+        SELECT status, next_followup_due_at, last_followup_plan_id, recovered_at
+        FROM abnormal_episodes
+        WHERE id = $1
+        ",
+    )
+    .bind(fixture.episode_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load recovered episode projection");
+    assert_eq!(episode_projection.0, "recovered");
+    assert_eq!(episode_projection.1, None);
+    assert_eq!(episode_projection.2, None);
+    assert!(episode_projection.3.is_some());
+
+    let followup_status: String =
+        sqlx::query_scalar(r"SELECT status FROM agent_proactive_followups WHERE id = $1")
+            .bind(agent_followup_id)
+            .fetch_one(app.pool())
+            .await
+            .expect("load followup status");
+    assert_eq!(followup_status, "resolved");
+
+    let active_hint_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM attention_hints
+        WHERE source_ref_id = $1
+          AND status = 'active'
+        ",
+    )
+    .bind(agent_followup_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("count active hints");
+    assert_eq!(active_hint_count, 0);
+
+    let session_projection: (Option<String>, Option<Uuid>, Option<Uuid>) = sqlx::query_as(
+        r"
+        SELECT chat_context_kind, abnormal_episode_id, agent_followup_id
+        FROM ai_chat_sessions
+        WHERE id = $1
+        ",
+    )
+    .bind(chat_session_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load session context");
+    assert_eq!(
+        session_projection.0.as_deref(),
+        Some("abnormal_episode_followup")
+    );
+    assert_eq!(session_projection.1, Some(fixture.episode_id));
+    assert_eq!(session_projection.2, Some(agent_followup_id));
+}
+
+async fn current_user_id(pool: &sqlx::PgPool, phone: &str) -> uuid::Uuid {
+    sqlx::query_scalar::<_, uuid::Uuid>(
+        r"
+        SELECT user_id
+        FROM user_identities
+        WHERE provider = 'phone' AND identifier = $1
+        ",
+    )
+    .bind(phone)
+    .fetch_one(pool)
+    .await
+    .expect("read current user id")
 }
 
 #[tokio::test]

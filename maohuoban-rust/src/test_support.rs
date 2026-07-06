@@ -6,6 +6,7 @@ use maohuoban_auth_application::auth::{
 };
 use maohuoban_auth_domain::auth::DeviceDescriptor;
 use maohuoban_home_application::home::{merchant_home_snapshot, new_user_home_snapshot};
+use maohuoban_home_http::home::HomeRealtimeEvent;
 use tokio::sync::{Mutex, OwnedMutexGuard};
 use uuid::Uuid;
 
@@ -37,6 +38,15 @@ impl AuthTestApp {
 
     pub fn router(&self) -> axum::Router {
         self.app.router.clone()
+    }
+
+    /// `subscribe_home_realtime` 订阅首页实时事件
+    /// 核心职责：
+    /// - 为契约测试提供后端广播事件观察入口
+    /// - 验证 mutation 后是否通过单一读模型触发前端刷新
+    #[must_use]
+    pub fn subscribe_home_realtime(&self) -> tokio::sync::broadcast::Receiver<HomeRealtimeEvent> {
+        self.app.home_realtime_hub.subscribe()
     }
 
     /// # Panics

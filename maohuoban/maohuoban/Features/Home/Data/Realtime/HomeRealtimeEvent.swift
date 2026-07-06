@@ -7,7 +7,7 @@ import Foundation
 struct HomeRealtimeEvent: Decodable, Equatable {
     let event: String
     let petID: String
-    let hintID: String
+    let hintID: String?
     let kind: String
     let sourceRefType: String
     let sourceRefID: String
@@ -26,7 +26,7 @@ struct HomeRealtimeEvent: Decodable, Equatable {
     init(
         event: String,
         petID: String,
-        hintID: String,
+        hintID: String?,
         kind: String,
         sourceRefType: String,
         sourceRefID: String,
@@ -45,7 +45,7 @@ struct HomeRealtimeEvent: Decodable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         event = try container.decode(String.self, forKey: .event)
         petID = try container.decode(String.self, forKey: .petID)
-        hintID = try container.decode(String.self, forKey: .hintID)
+        hintID = try container.decodeIfPresent(String.self, forKey: .hintID)
         kind = try container.decode(String.self, forKey: .kind)
         sourceRefType = try container.decode(String.self, forKey: .sourceRefType)
         sourceRefID = try container.decode(String.self, forKey: .sourceRefID)

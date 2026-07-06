@@ -86,7 +86,7 @@ async fn publish_projected_attention_hints(
         realtime_hub.publish(HomeRealtimeEvent {
             actor_user_id: event.actor_user_id,
             pet_id: event.pet_id,
-            hint_id: event.hint_id,
+            hint_id: Some(event.hint_id),
             kind: HomeRealtimeEventKind::AttentionHintProjected,
             source_ref_type: event.source_ref_type,
             source_ref_id: event.source_ref_id,

@@ -5,6 +5,8 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HomeRealtimeEventKind {
     AttentionHintProjected,
+    AttentionHintResolved,
+    TimelineChanged,
 }
 
 impl HomeRealtimeEventKind {
@@ -12,6 +14,8 @@ impl HomeRealtimeEventKind {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::AttentionHintProjected => "attention_hint_projected",
+            Self::AttentionHintResolved => "attention_hint_resolved",
+            Self::TimelineChanged => "timeline_changed",
         }
     }
 }

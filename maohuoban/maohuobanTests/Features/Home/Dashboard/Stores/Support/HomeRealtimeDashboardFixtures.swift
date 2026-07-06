@@ -9,7 +9,8 @@ enum HomeRealtimeDashboardFixtures {
     @MainActor
     static func snapshot(
         selectedPetID: String,
-        attentionHints: [HomeDashboardSnapshot.AttentionHint] = []
+        attentionHints: [HomeDashboardSnapshot.AttentionHint] = [],
+        recentTimeline: [HomeDashboardSnapshot.TimelineEvent] = []
     ) -> HomeDashboardSnapshot {
         HomeDashboardSnapshot(
             identity: HomeDashboardSnapshot.Identity(
@@ -34,7 +35,7 @@ enum HomeRealtimeDashboardFixtures {
             reminders: [],
             quickActions: [],
             partnerRecommendation: nil,
-            recentTimeline: [],
+            recentTimeline: recentTimeline,
             merchantDashboard: nil,
             emptyState: nil,
             recommendedContent: [],

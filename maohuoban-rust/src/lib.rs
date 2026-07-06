@@ -231,6 +231,7 @@ pub async fn build_backend_app(config: BackendConfig) -> Result<BackendApp, Back
         },
         &pool,
         Arc::new(confirmation_task_repository),
+        home_realtime_hub.clone(),
     );
     let router = build_backend_router(BackendRouterParts {
         config: &config,
@@ -466,6 +467,7 @@ fn build_ai_http_state(
     repos: AiHttpRepositories,
     ai_session_pool: &sqlx::PgPool,
     confirmation_tasks: Arc<dyn maohuoban_pet_application::pet::AgentConfirmationTaskRepository>,
+    home_realtime_hub: HomeRealtimeHub,
 ) -> AiHttpState {
     let ai_llm_provider =
         infrastructure::ai::build_ai_llm_provider_from_provider_config(provider_config);
@@ -533,6 +535,11 @@ fn build_ai_http_state(
             ),
         ),
         confirmation_task_repository: confirmation_tasks,
+        home_realtime_event_publisher: Arc::new(
+            infrastructure::home_realtime_event_publisher::HomeRealtimeHubEventPublisher::new(
+                home_realtime_hub,
+            ),
+        ),
     }
 }
 

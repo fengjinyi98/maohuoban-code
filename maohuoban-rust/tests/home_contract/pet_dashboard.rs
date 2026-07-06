@@ -155,6 +155,7 @@ async fn home_dashboard_followup_timeline_routes_to_parent_abnormal_event() {
 
     assert_eq!(first_timeline["id"], followup_event_id);
     assert_eq!(first_timeline["route_event_id"], abnormal_event_id);
+    assert_eq!(first_timeline["event_subkind"], "symptom_followup");
     assert_eq!(first_timeline["source_label"], "毛球更新");
 }
 

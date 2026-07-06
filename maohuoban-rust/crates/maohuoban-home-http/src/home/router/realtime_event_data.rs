@@ -12,7 +12,8 @@ use crate::home::HomeRealtimeEvent;
 pub(super) struct HomeRealtimeEventData {
     pub event: &'static str,
     pub pet_id: Uuid,
-    pub hint_id: Uuid,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hint_id: Option<Uuid>,
     pub kind: &'static str,
     pub source_ref_type: String,
     pub source_ref_id: Uuid,

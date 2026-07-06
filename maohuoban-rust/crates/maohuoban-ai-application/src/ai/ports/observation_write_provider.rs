@@ -50,4 +50,20 @@ pub trait PetObservationWriteProvider: Send + Sync {
         pet_id: Uuid,
         confirmation_task_id: Uuid,
     ) -> PetResult<CommittedObservationWrite>;
+
+    async fn prepare_abnormal_recovery_write(
+        &self,
+        actor_user_id: Uuid,
+        pet_id: Uuid,
+        recovery_note: String,
+        confirmation_question_text: Option<String>,
+        context: ObservationWriteContext,
+    ) -> PetResult<PreparedObservationWrite>;
+
+    async fn commit_abnormal_recovery_write(
+        &self,
+        actor_user_id: Uuid,
+        pet_id: Uuid,
+        confirmation_task_id: Uuid,
+    ) -> PetResult<CommittedObservationWrite>;
 }

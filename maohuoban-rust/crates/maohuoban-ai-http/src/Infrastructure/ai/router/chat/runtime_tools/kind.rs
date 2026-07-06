@@ -19,12 +19,14 @@ pub(super) enum RuntimePetContextToolKind {
     DietConfirmationCandidates,
     PrepareObservationWrite,
     PrepareAbnormalSymptomCreation,
+    PrepareAbnormalRecoveryWrite,
     CommitObservationWrite,
+    CommitAbnormalRecoveryWrite,
     SaveAbnormalFollowupPlan,
 }
 
 impl RuntimePetContextToolKind {
-    pub(super) fn all() -> [Self; 10] {
+    pub(super) fn all() -> [Self; 12] {
         [
             Self::Identity,
             Self::AbnormalEpisodeFacts,
@@ -34,7 +36,9 @@ impl RuntimePetContextToolKind {
             Self::DietConfirmationCandidates,
             Self::PrepareObservationWrite,
             Self::PrepareAbnormalSymptomCreation,
+            Self::PrepareAbnormalRecoveryWrite,
             Self::CommitObservationWrite,
+            Self::CommitAbnormalRecoveryWrite,
             Self::SaveAbnormalFollowupPlan,
         ]
     }
@@ -49,7 +53,9 @@ impl RuntimePetContextToolKind {
             Self::DietConfirmationCandidates => "load_pet_diet_confirmation_candidates",
             Self::PrepareObservationWrite => "prepare_pet_observation_write",
             Self::PrepareAbnormalSymptomCreation => "prepare_pet_abnormal_symptom_creation",
+            Self::PrepareAbnormalRecoveryWrite => "prepare_pet_abnormal_recovery_write",
             Self::CommitObservationWrite => "commit_pet_observation_write",
+            Self::CommitAbnormalRecoveryWrite => "commit_pet_abnormal_recovery_write",
             Self::SaveAbnormalFollowupPlan => "save_abnormal_episode_followup_plan",
         }
     }
@@ -70,7 +76,11 @@ impl RuntimePetContextToolKind {
             Self::PrepareAbnormalSymptomCreation => {
                 "准备创建宠物异常追踪确认任务。模型整理异常发生时间、症状类型、程度和记录内容，用户授权前不会写入真实异常事件或 episode"
             }
+            Self::PrepareAbnormalRecoveryWrite => {
+                "准备将当前异常 episode 标记为恢复的确认任务。用户授权前不会写入恢复记录，也不会关闭追踪"
+            }
             Self::CommitObservationWrite => "在用户确认后提交宠物观察记录写入",
+            Self::CommitAbnormalRecoveryWrite => "在用户确认后提交异常恢复写入并关闭本次异常追踪",
             Self::SaveAbnormalFollowupPlan => {
                 "保存异常 episode 主动追踪计划草稿。episode 和 followup 归属只能来自后端会话上下文，模型只提交 due_at、追问文案、规划理由和推荐动作"
             }
@@ -87,7 +97,9 @@ impl RuntimePetContextToolKind {
             Self::DietConfirmationCandidates => "pet.diet_confirmation_candidates.read",
             Self::PrepareObservationWrite => "pet.observation.write_prepare",
             Self::PrepareAbnormalSymptomCreation => "pet.abnormal_symptom.create_prepare",
+            Self::PrepareAbnormalRecoveryWrite => "pet.abnormal_recovery.write_prepare",
             Self::CommitObservationWrite => "pet.observation.write_commit",
+            Self::CommitAbnormalRecoveryWrite => "pet.abnormal_recovery.write_commit",
             Self::SaveAbnormalFollowupPlan => "pet.abnormal_followup_plan.write",
         }
     }
@@ -102,7 +114,9 @@ impl RuntimePetContextToolKind {
             Self::DietConfirmationCandidates => "pet_diet_confirmation_candidates",
             Self::PrepareObservationWrite => "pet_observation_write_prepare",
             Self::PrepareAbnormalSymptomCreation => "pet_abnormal_symptom_create_prepare",
+            Self::PrepareAbnormalRecoveryWrite => "pet_abnormal_recovery_write_prepare",
             Self::CommitObservationWrite => "pet_observation_write_commit",
+            Self::CommitAbnormalRecoveryWrite => "pet_abnormal_recovery_write_commit",
             Self::SaveAbnormalFollowupPlan => "pet_abnormal_followup_plan_write",
         }
     }
@@ -110,7 +124,10 @@ impl RuntimePetContextToolKind {
     pub(super) fn domain_tag(self) -> &'static str {
         match self {
             Self::Identity => "identity",
-            Self::AbnormalEpisodeFacts | Self::PrepareAbnormalSymptomCreation => "abnormal_episode",
+            Self::AbnormalEpisodeFacts
+            | Self::PrepareAbnormalSymptomCreation
+            | Self::PrepareAbnormalRecoveryWrite
+            | Self::CommitAbnormalRecoveryWrite => "abnormal_episode",
             Self::CurrentDiet => "diet",
             Self::RecentHealthFacts => "health",
             Self::FoodInventoryHints => "inventory",
@@ -154,9 +171,17 @@ impl RuntimePetContextToolKind {
                 started: "正在准备异常追踪".to_owned(),
                 completed: "异常追踪确认任务已准备".to_owned(),
             },
+            Self::PrepareAbnormalRecoveryWrite => ToolProgressText {
+                started: "正在准备恢复记录".to_owned(),
+                completed: "恢复确认任务已准备".to_owned(),
+            },
             Self::CommitObservationWrite => ToolProgressText {
                 started: "正在提交观察记录写入".to_owned(),
                 completed: "观察记录写入完成".to_owned(),
+            },
+            Self::CommitAbnormalRecoveryWrite => ToolProgressText {
+                started: "正在提交恢复记录".to_owned(),
+                completed: "恢复记录写入完成".to_owned(),
             },
             Self::SaveAbnormalFollowupPlan => ToolProgressText {
                 started: "正在保存追踪计划".to_owned(),
@@ -174,8 +199,11 @@ impl RuntimePetContextToolKind {
             Self::FoodInventoryHints => inventory_hint_fact_schema(),
             Self::DietConfirmationCandidates => confirmation_candidate_fact_schema(),
             Self::PrepareObservationWrite => observation_write_prepare_fact_schema(),
+            Self::PrepareAbnormalRecoveryWrite => observation_write_prepare_fact_schema(),
             Self::PrepareAbnormalSymptomCreation => abnormal_symptom_creation_prepare_fact_schema(),
-            Self::CommitObservationWrite => observation_write_commit_fact_schema(),
+            Self::CommitObservationWrite | Self::CommitAbnormalRecoveryWrite => {
+                observation_write_commit_fact_schema()
+            }
             Self::SaveAbnormalFollowupPlan => abnormal_followup_plan_fact_schema(),
         }
     }

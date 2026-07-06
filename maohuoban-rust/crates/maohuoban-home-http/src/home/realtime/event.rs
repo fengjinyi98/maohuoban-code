@@ -11,7 +11,7 @@ use super::HomeRealtimeEventKind;
 pub struct HomeRealtimeEvent {
     pub actor_user_id: Uuid,
     pub pet_id: Uuid,
-    pub hint_id: Uuid,
+    pub hint_id: Option<Uuid>,
     pub kind: HomeRealtimeEventKind,
     pub source_ref_type: String,
     pub source_ref_id: Uuid,

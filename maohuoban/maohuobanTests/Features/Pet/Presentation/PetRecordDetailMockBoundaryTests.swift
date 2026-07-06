@@ -104,6 +104,7 @@ final class PetRecordDetailMockBoundaryTests: XCTestCase {
             id: "followup-event-1",
             routeEventID: "abnormal-event-1",
             eventKind: .health,
+            eventSubkind: "symptom_followup",
             title: "追加观察",
             subtitle: "精神一般",
             occurredText: "20:45",
@@ -122,6 +123,32 @@ final class PetRecordDetailMockBoundaryTests: XCTestCase {
         XCTAssertEqual(highlightedRecordID, "followup-event-1")
         XCTAssertEqual(routeContext, context)
         XCTAssertEqual(detailRoute.id, "abnormal-abnormal-event-1-highlight-followup-event-1")
+    }
+
+    func testTimelineResolverUsesStructuredSubkindBeforeTextKeywords() {
+        let event = HomeDashboardSnapshot.TimelineEvent(
+            id: "followup-event-1",
+            routeEventID: "abnormal-event-1",
+            eventKind: .health,
+            eventSubkind: "symptom_followup",
+            title: "观察记录已写入",
+            subtitle: "馒头吐黄水后已恢复正常，精神状态良好，未再呕吐。",
+            occurredText: "23:27",
+            occurredAt: "2026-07-06T15:27:29Z",
+            sourceLabel: "毛球更新"
+        )
+        let context = Self.makeRecordContext()
+
+        let route = HomeTimelineRecordRouteResolver.route(for: event, recordContext: context)
+
+        guard case .petRecordDetail(let detailRoute) = route,
+              case .abnormal(let recordID, let highlightedRecordID, let routeContext, _) = detailRoute else {
+            XCTFail("Expected structured symptom followup to route to abnormal detail")
+            return
+        }
+        XCTAssertEqual(recordID, "abnormal-event-1")
+        XCTAssertEqual(highlightedRecordID, "followup-event-1")
+        XCTAssertEqual(routeContext, context)
     }
 
     func testRecordDetailDestinationAcceptsBackendEventRoutesAtCompileTime() {

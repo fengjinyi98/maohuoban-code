@@ -94,6 +94,8 @@ pub struct HomeTimelineEvent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub route_event_id: Option<String>,
     pub event_kind: HomeTimelineEventKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_subkind: Option<String>,
     pub title: String,
     pub subtitle: String,
     pub occurred_text: String,

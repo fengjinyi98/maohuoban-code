@@ -421,6 +421,37 @@ mod tests {
                 event_id: Uuid::new_v4(),
             })
         }
+
+        async fn prepare_abnormal_recovery_write(
+            &self,
+            _actor_user_id: Uuid,
+            _pet_id: Uuid,
+            _recovery_note: String,
+            _confirmation_question_text: Option<String>,
+            _context: ObservationWriteContext,
+        ) -> PetResult<PreparedObservationWrite> {
+            let confirmation_task_id = Uuid::new_v4();
+            Ok(PreparedObservationWrite {
+                confirmation: AiToolConfirmationRequirement {
+                    confirmation_task_id: confirmation_task_id.to_string(),
+                    tool_name: "commit_pet_abnormal_recovery_write".to_owned(),
+                    question_text: "确认标记恢复？".to_owned(),
+                    args: json!({ "confirmation_task_id": confirmation_task_id }),
+                },
+            })
+        }
+
+        async fn commit_abnormal_recovery_write(
+            &self,
+            _actor_user_id: Uuid,
+            _pet_id: Uuid,
+            confirmation_task_id: Uuid,
+        ) -> PetResult<CommittedObservationWrite> {
+            Ok(CommittedObservationWrite {
+                confirmation_task_id,
+                event_id: Uuid::new_v4(),
+            })
+        }
     }
 
     #[async_trait]
@@ -789,6 +820,9 @@ mod tests {
             observation_write_provider: Arc::new(EmptyObservationWriteProvider),
             abnormal_symptom_creation_provider: Arc::new(EmptyAbnormalSymptomCreationProvider),
             confirmation_task_repository: Arc::new(EmptyAgentConfirmationTaskRepository),
+            home_realtime_event_publisher: Arc::new(
+                maohuoban_ai_application::ai::ports::NoopHomeRealtimeEventPublisher,
+            ),
         }
     }
 

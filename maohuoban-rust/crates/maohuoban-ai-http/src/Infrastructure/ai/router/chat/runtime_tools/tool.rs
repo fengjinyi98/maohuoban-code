@@ -102,7 +102,25 @@ impl AiToolDefinition for RuntimePetContextTool {
                 },
                 "required": ["occurred_at", "symptom_kinds", "severity", "note"]
             }),
+            RuntimePetContextToolKind::PrepareAbnormalRecoveryWrite => serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "recovery_note": { "type": "string" },
+                    "confirmation_question_text": {
+                        "type": "string",
+                        "description": "用户授权卡上的说明文案。需要关闭异常追踪时，把写入前要对用户说明的内容放在这里，不要先用普通文本输出。"
+                    }
+                },
+                "required": ["recovery_note"]
+            }),
             RuntimePetContextToolKind::CommitObservationWrite => serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "confirmation_task_id": { "type": "string", "format": "uuid" }
+                },
+                "required": ["confirmation_task_id"]
+            }),
+            RuntimePetContextToolKind::CommitAbnormalRecoveryWrite => serde_json::json!({
                 "type": "object",
                 "properties": {
                     "confirmation_task_id": { "type": "string", "format": "uuid" }
@@ -127,21 +145,27 @@ impl AiToolDefinition for RuntimePetContextTool {
                 self.kind,
                 RuntimePetContextToolKind::PrepareObservationWrite
                     | RuntimePetContextToolKind::PrepareAbnormalSymptomCreation
+                    | RuntimePetContextToolKind::PrepareAbnormalRecoveryWrite
                     | RuntimePetContextToolKind::CommitObservationWrite
+                    | RuntimePetContextToolKind::CommitAbnormalRecoveryWrite
                     | RuntimePetContextToolKind::SaveAbnormalFollowupPlan
             ),
             concurrency_safe: !matches!(
                 self.kind,
                 RuntimePetContextToolKind::PrepareObservationWrite
                     | RuntimePetContextToolKind::PrepareAbnormalSymptomCreation
+                    | RuntimePetContextToolKind::PrepareAbnormalRecoveryWrite
                     | RuntimePetContextToolKind::CommitObservationWrite
+                    | RuntimePetContextToolKind::CommitAbnormalRecoveryWrite
                     | RuntimePetContextToolKind::SaveAbnormalFollowupPlan
             ),
             risk_level: if matches!(
                 self.kind,
                 RuntimePetContextToolKind::PrepareObservationWrite
                     | RuntimePetContextToolKind::PrepareAbnormalSymptomCreation
+                    | RuntimePetContextToolKind::PrepareAbnormalRecoveryWrite
                     | RuntimePetContextToolKind::CommitObservationWrite
+                    | RuntimePetContextToolKind::CommitAbnormalRecoveryWrite
                     | RuntimePetContextToolKind::SaveAbnormalFollowupPlan
             ) {
                 AiToolRiskLevel::High
@@ -152,9 +176,14 @@ impl AiToolDefinition for RuntimePetContextTool {
                 self.kind,
                 RuntimePetContextToolKind::PrepareObservationWrite
                     | RuntimePetContextToolKind::PrepareAbnormalSymptomCreation
+                    | RuntimePetContextToolKind::PrepareAbnormalRecoveryWrite
             ),
             domain_tags: vec![self.kind.domain_tag().to_owned()],
-            toolset: if matches!(self.kind, RuntimePetContextToolKind::CommitObservationWrite) {
+            toolset: if matches!(
+                self.kind,
+                RuntimePetContextToolKind::CommitObservationWrite
+                    | RuntimePetContextToolKind::CommitAbnormalRecoveryWrite
+            ) {
                 Toolset::Confirmation
             } else {
                 Toolset::PrivatePetContext
@@ -171,6 +200,11 @@ impl AiToolDefinition for RuntimePetContextTool {
         if self.kind == RuntimePetContextToolKind::PrepareAbnormalSymptomCreation {
             return self
                 .execute_prepare_abnormal_symptom_creation(ctx, args)
+                .await;
+        }
+        if self.kind == RuntimePetContextToolKind::PrepareAbnormalRecoveryWrite {
+            return self
+                .execute_prepare_abnormal_recovery_write(ctx, args)
                 .await;
         }
         let result = self.execute_kind(ctx, args).await;
@@ -376,6 +410,11 @@ impl RuntimePetContextTool {
                     "prepare abnormal symptom creation handled in execute_prepare_abnormal_symptom_creation"
                 )
             }
+            RuntimePetContextToolKind::PrepareAbnormalRecoveryWrite => {
+                unreachable!(
+                    "prepare abnormal recovery write handled in execute_prepare_abnormal_recovery_write"
+                )
+            }
             RuntimePetContextToolKind::CommitObservationWrite => {
                 let confirmation_task_id = args
                     .get("confirmation_task_id")
@@ -388,6 +427,28 @@ impl RuntimePetContextTool {
                     .providers
                     .observation_write_provider
                     .commit_observation_write(
+                        ctx.actor_user_id,
+                        self.target_pet.pet_id,
+                        confirmation_task_id,
+                    )
+                    .await
+                    .map_err(|error| {
+                        maohuoban_ai_domain::ai::AiError::Infrastructure(error.to_string())
+                    })?;
+                Ok(observation_commit_fact_package(committed.event_id))
+            }
+            RuntimePetContextToolKind::CommitAbnormalRecoveryWrite => {
+                let confirmation_task_id = args
+                    .get("confirmation_task_id")
+                    .and_then(serde_json::Value::as_str)
+                    .and_then(|value| Uuid::parse_str(value).ok())
+                    .ok_or_else(|| {
+                        maohuoban_ai_domain::ai::AiError::InvalidInput("缺少确认任务 ID".to_owned())
+                    })?;
+                let committed = self
+                    .providers
+                    .observation_write_provider
+                    .commit_abnormal_recovery_write(
                         ctx.actor_user_id,
                         self.target_pet.pet_id,
                         confirmation_task_id,
@@ -509,6 +570,57 @@ impl RuntimePetContextTool {
                     ctx.actor_user_id,
                     false,
                     Some("pet.abnormal_symptom.create_prepare.failed".to_owned()),
+                    args,
+                    &AiFactPackage::empty(),
+                )
+                .await;
+                AiToolResult::failed(&safe_message)
+            }
+        }
+    }
+
+    async fn execute_prepare_abnormal_recovery_write(
+        &self,
+        ctx: &AiToolContext,
+        args: &serde_json::Value,
+    ) -> AiToolResult {
+        let Some(recovery_note) = args
+            .get("recovery_note")
+            .and_then(serde_json::Value::as_str)
+        else {
+            return AiToolResult::invalid_arguments_failure();
+        };
+        match self
+            .providers
+            .observation_write_provider
+            .prepare_abnormal_recovery_write(
+                ctx.actor_user_id,
+                self.target_pet.pet_id,
+                recovery_note.to_owned(),
+                optional_string_arg(args, "confirmation_question_text"),
+                ctx.observation_write_context.clone(),
+            )
+            .await
+        {
+            Ok(prepared) => {
+                let mut confirmation = prepared.confirmation;
+                confirmation.args = args.clone();
+                self.record_tool_access(
+                    ctx.actor_user_id,
+                    true,
+                    None,
+                    args,
+                    &observation_prepare_fact_package(&confirmation.confirmation_task_id),
+                )
+                .await;
+                AiToolResult::requires_confirmation(confirmation)
+            }
+            Err(error) => {
+                let safe_message = error.to_string();
+                self.record_tool_access(
+                    ctx.actor_user_id,
+                    false,
+                    Some("pet.abnormal_recovery.write_prepare.failed".to_owned()),
                     args,
                     &AiFactPackage::empty(),
                 )

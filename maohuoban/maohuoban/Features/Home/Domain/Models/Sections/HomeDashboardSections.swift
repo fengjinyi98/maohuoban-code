@@ -128,6 +128,7 @@ extension HomeDashboardSnapshot {
         let id: String
         let routeEventID: String?
         let eventKind: Kind
+        let eventSubkind: String?
         let title: String
         let subtitle: String
         let occurredText: String
@@ -142,6 +143,7 @@ extension HomeDashboardSnapshot {
             id: String,
             routeEventID: String? = nil,
             eventKind: Kind,
+            eventSubkind: String? = nil,
             title: String,
             subtitle: String,
             occurredText: String,
@@ -151,6 +153,7 @@ extension HomeDashboardSnapshot {
             self.id = id
             self.routeEventID = routeEventID
             self.eventKind = eventKind
+            self.eventSubkind = eventSubkind
             self.title = title
             self.subtitle = subtitle
             self.occurredText = occurredText
@@ -162,6 +165,7 @@ extension HomeDashboardSnapshot {
             case id
             case routeEventID = "route_event_id"
             case eventKind = "event_kind"
+            case eventSubkind = "event_subkind"
             case title
             case subtitle
             case occurredText = "occurred_text"
