@@ -13,6 +13,7 @@ struct HospitalBookingContentSection: View {
     @Binding var note: String
     let isBusy: Bool
     let onSubmit: () -> Void
+    let onCancel: (HospitalAppointment) -> Void
 
     var body: some View {
         switch phase {
@@ -30,8 +31,14 @@ struct HospitalBookingContentSection: View {
             )
         case .booking:
             HospitalBookingSubmittingSection()
-        case .booked:
-            HospitalBookingSuccessSection()
+        case .cancelling:
+            HospitalBookingCancellingSection()
+        case .booked(let appointment):
+            HospitalBookingSuccessSection(
+                appointment: appointment,
+                isBusy: isBusy,
+                onCancel: { onCancel(appointment) }
+            )
         case .failed(let message):
             HospitalBookingFailedSection(message: message)
         }

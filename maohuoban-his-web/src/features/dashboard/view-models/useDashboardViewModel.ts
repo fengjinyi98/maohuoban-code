@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { readSession } from "../../../shared/auth/sessionStorage";
-import { getTodayDashboard } from "../data/dashboardRepository";
+import { dashboardTodayQueryOptions } from "./dashboardQueryOptions";
 
 // useDashboardViewModel 今日工作台状态
 // 核心职责：
@@ -8,10 +8,7 @@ import { getTodayDashboard } from "../data/dashboardRepository";
 // - 根据角色派生主待办
 export function useDashboardViewModel() {
   const session = readSession();
-  const query = useQuery({
-    queryKey: ["dashboard", "today"],
-    queryFn: getTodayDashboard,
-  });
+  const query = useQuery(dashboardTodayQueryOptions());
   const role = session?.role ?? "doctor";
   const data = query.data;
 

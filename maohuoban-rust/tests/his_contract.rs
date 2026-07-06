@@ -157,9 +157,9 @@ async fn seed_his_context(
         VALUES (
             $1,
             '毛伙伴闭环验证医院',
-            '成都',
-            '高新区',
-            '成都市高新区天府大道中段 188 号',
+            '毛伙伴市',
+            '验证区',
+            '毛伙伴市验证区闭环路 188 号',
             '028-88880088',
             ARRAY['异常接诊', '诊前资料包', '病历回流']::text[],
             'verified',
@@ -319,5 +319,47 @@ async fn his_session_and_dashboard_read_real_partner_hospital_data() {
     assert_eq!(
         dashboard_body["data"]["appointments"][0]["reason"],
         "异常后就医"
+    );
+}
+
+#[tokio::test]
+async fn his_dashboard_excludes_cancelled_partner_hospital_appointments() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let (staff_user_id, staff_token) = login_user(&app, "13900000002").await;
+    let (owner_user_id, _) = login_user(&app, "13800139002").await;
+    let (_, _, _, appointment_id) = seed_his_context(&app, staff_user_id, owner_user_id).await;
+
+    sqlx::query(
+        r#"
+        UPDATE samecity_hospital_appointments
+        SET status = 'cancelled'
+        WHERE id = $1
+        "#,
+    )
+    .bind(appointment_id)
+    .execute(app.pool())
+    .await
+    .expect("cancel appointment");
+
+    let dashboard_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            "/api/v1/his/dashboard/today",
+            Some(&staff_token),
+        ))
+        .await
+        .expect("load his dashboard");
+    assert_eq!(dashboard_response.status(), StatusCode::OK);
+    let dashboard_body = response_json(dashboard_response).await;
+    assert_eq!(dashboard_body["success"], true);
+    assert_eq!(dashboard_body["data"]["summary"]["appointments"], 0);
+    assert!(
+        dashboard_body["data"]["appointments"]
+            .as_array()
+            .expect("appointments array")
+            .is_empty(),
+        "cancelled appointment must not enter HIS dashboard: {dashboard_body:?}"
     );
 }

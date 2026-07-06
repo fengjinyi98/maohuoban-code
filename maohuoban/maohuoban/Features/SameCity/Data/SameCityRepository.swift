@@ -14,6 +14,11 @@ protocol SameCityRepository {
         draft: HospitalAppointmentDraft,
         currentUserID: String
     ) async throws(MHBAPIError) -> MHBAPIResponse<HospitalAppointment>
+
+    func cancelHospitalAppointment(
+        appointmentID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<HospitalAppointment>
 }
 
 // DefaultSameCityRepository 默认同城仓库
@@ -53,6 +58,25 @@ struct DefaultSameCityRepository: SameCityRepository {
         )
     }
 
+    func cancelHospitalAppointment(
+        appointmentID: String,
+        currentUserID: String
+    ) async throws(MHBAPIError) -> MHBAPIResponse<HospitalAppointment> {
+        let trimmedAppointmentID = appointmentID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedAppointmentID.isEmpty else {
+            throw .business(
+                code: "samecity.appointment_id_required",
+                message: "预约不存在",
+                statusCode: 400
+            )
+        }
+        return try await client.post(
+            path: "/api/v1/same-city/hospital-appointments/\(trimmedAppointmentID)/cancel",
+            body: EmptySameCityRequestBody(),
+            headers: try userHeaders(currentUserID: currentUserID)
+        )
+    }
+
     private func userHeaders(currentUserID: String) throws(MHBAPIError) -> [String: String] {
         guard !currentUserID.isEmpty else {
             throw .business(
@@ -64,3 +88,9 @@ struct DefaultSameCityRepository: SameCityRepository {
         return ["x-maohuoban-user-id": currentUserID]
     }
 }
+
+// EmptySameCityRequestBody 空请求体
+// 核心职责：
+// - 为无字段 POST 契约提供 Encodable body
+// - 避免业务层散写空字典
+private struct EmptySameCityRequestBody: Encodable {}

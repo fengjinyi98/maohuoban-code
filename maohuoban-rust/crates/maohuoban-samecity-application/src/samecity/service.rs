@@ -39,6 +39,17 @@ impl SameCityService {
         validate_text("预约原因", &input.reason)?;
         self.repository.create_hospital_appointment(input).await
     }
+
+    pub async fn cancel_hospital_appointment(
+        &self,
+        owner_user_id: Uuid,
+        appointment_id: Uuid,
+    ) -> SameCityResult<HospitalAppointment> {
+        validate_uuid("预约", appointment_id)?;
+        self.repository
+            .cancel_hospital_appointment(owner_user_id, appointment_id)
+            .await
+    }
 }
 
 fn validate_text(field: &str, value: &str) -> SameCityResult<()> {

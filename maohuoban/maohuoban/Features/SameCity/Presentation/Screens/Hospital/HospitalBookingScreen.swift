@@ -4,9 +4,11 @@ import MaohuobanDesignSystem
 
 // HospitalBookingScreen 医院预约页面
 // 核心职责：
-// - 按城市读取可预约 HIS 合作医院列表
+// - 读取开发验证阶段可预约 HIS 合作医院列表
 // - 为当前宠物提交医院预约请求
 struct HospitalBookingScreen: View {
+    private static let validationHospitalCity = "毛伙伴市"
+
     let currentUserID: String?
     let petID: String?
     let city: String?
@@ -21,7 +23,7 @@ struct HospitalBookingScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: MHBTheme.Spacing.s4) {
-                HospitalBookingIntroSection(city: resolvedCity)
+                HospitalBookingIntroSection()
 
                 if petID == nil {
                     HospitalBookingUnavailableSection()
@@ -35,6 +37,8 @@ struct HospitalBookingScreen: View {
                         isBusy: store.isBusy
                     ) {
                         Task { await submit() }
+                    } onCancel: { appointment in
+                        Task { await cancel(appointment) }
                     }
                 }
             }
@@ -50,11 +54,14 @@ struct HospitalBookingScreen: View {
             selectFirstHospitalIfNeeded()
         }
         .accessibilityIdentifier("samecity.hospitalBooking.screen")
+        .onChange(of: store.toastMessage) { _, message in
+            guard let message else { return }
+            showToast(message: message, style: store.toastStyle)
+        }
     }
 
     private var resolvedCity: String {
-        let trimmedCity = (city ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedCity.isEmpty ? "成都" : trimmedCity
+        Self.validationHospitalCity
     }
 
     private var taskID: String {
@@ -78,6 +85,26 @@ struct HospitalBookingScreen: View {
         )
         if case .booked = store.phase {
             onBooked()
+        }
+    }
+
+    // cancel 取消医院预约
+    // 核心职责：
+    // - 调用 Store 触发真实后端取消
+    // - 成功后通知首页刷新聚合快照
+    private func cancel(_ appointment: HospitalAppointment) async {
+        await store.cancel(appointmentID: appointment.id, currentUserID: currentUserID)
+        if case .booked(let appointment) = store.phase, appointment.status == .cancelled {
+            onBooked()
+        }
+    }
+
+    private func showToast(message: String, style: HospitalBookingToastStyle) {
+        switch style {
+        case .success:
+            MHBToastPresenter().success(message)
+        case .danger:
+            MHBToastPresenter().danger(message)
         }
     }
 

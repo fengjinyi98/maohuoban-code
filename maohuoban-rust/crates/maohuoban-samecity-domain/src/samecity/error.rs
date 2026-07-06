@@ -14,6 +14,10 @@ pub enum SameCityError {
     HospitalNotFound,
     #[error("pet access forbidden")]
     PetForbidden,
+    #[error("appointment not found")]
+    AppointmentNotFound,
+    #[error("appointment cannot be cancelled")]
+    AppointmentNotCancellable,
     #[error("samecity infrastructure error: {0}")]
     Infrastructure(String),
 }

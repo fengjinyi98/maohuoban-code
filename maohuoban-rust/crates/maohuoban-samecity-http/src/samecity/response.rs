@@ -38,6 +38,16 @@ pub(super) fn error_response(error: &SameCityError) -> Response {
             "samecity.pet_forbidden",
             "无权为该宠物预约医院".to_owned(),
         ),
+        SameCityError::AppointmentNotFound => (
+            StatusCode::NOT_FOUND,
+            "samecity.appointment_not_found",
+            "预约不存在".to_owned(),
+        ),
+        SameCityError::AppointmentNotCancellable => (
+            StatusCode::CONFLICT,
+            "samecity.appointment_not_cancellable",
+            "当前预约状态无法取消".to_owned(),
+        ),
         SameCityError::Infrastructure(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             "samecity.internal_error",

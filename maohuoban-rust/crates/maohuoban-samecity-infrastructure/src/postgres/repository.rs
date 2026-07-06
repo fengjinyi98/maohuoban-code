@@ -117,6 +117,57 @@ impl SameCityRepository for PostgresSameCityRepository {
 
         row.try_into()
     }
+
+    async fn cancel_hospital_appointment(
+        &self,
+        owner_user_id: Uuid,
+        appointment_id: Uuid,
+    ) -> SameCityResult<HospitalAppointment> {
+        let status = sqlx::query_scalar::<_, String>(
+            r#"
+            SELECT status
+            FROM samecity_hospital_appointments
+            WHERE id = $1 AND owner_user_id = $2
+            "#,
+        )
+        .bind(appointment_id)
+        .bind(owner_user_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?
+        .ok_or(SameCityError::AppointmentNotFound)?;
+
+        if !matches!(status.as_str(), "pending" | "confirmed") {
+            return Err(SameCityError::AppointmentNotCancellable);
+        }
+
+        let row = sqlx::query_as::<_, HospitalAppointmentRow>(
+            r#"
+            UPDATE samecity_hospital_appointments
+            SET status = 'cancelled',
+                updated_at = now()
+            WHERE id = $1 AND owner_user_id = $2
+            RETURNING
+                id,
+                owner_user_id,
+                pet_id,
+                hospital_id,
+                scheduled_at,
+                reason,
+                note,
+                status,
+                created_at,
+                updated_at
+            "#,
+        )
+        .bind(appointment_id)
+        .bind(owner_user_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(to_infrastructure_error)?;
+
+        row.try_into()
+    }
 }
 
 /// ensure_bookable_partner_hospital 校验医院可预约

@@ -25,14 +25,14 @@ final class SameCityRepositoryTests: XCTestCase {
                   "code": "samecity.hospitals_loaded",
                   "message": "合作医院已加载",
                   "data": {
-                    "city": "成都",
+                    "city": "毛伙伴市",
                     "hospitals": [
                       {
                         "id": "7a5af99c-1e4f-4715-9498-4bcae4f0f101",
-                        "name": "瑞派宠物医院高新院区",
-                        "city": "成都",
-                        "district": "高新区",
-                        "address": "成都市高新区天府大道中段 88 号",
+                        "name": "毛伙伴闭环验证医院",
+                        "city": "毛伙伴市",
+                        "district": "验证区",
+                        "address": "毛伙伴市验证区闭环路 188 号",
                         "phone": "028-88880001",
                         "service_tags": ["体检", "疫苗", "复诊"],
                         "verification_status": "verified",
@@ -50,7 +50,7 @@ final class SameCityRepositoryTests: XCTestCase {
         }
 
         let response = try await repository.listHospitals(
-            city: "成都",
+            city: "毛伙伴市",
             currentUserID: "user-1"
         )
 
@@ -61,10 +61,10 @@ final class SameCityRepositoryTests: XCTestCase {
         XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
         let requestURL = try XCTUnwrap(request.url)
         let components = try XCTUnwrap(URLComponents(url: requestURL, resolvingAgainstBaseURL: false))
-        XCTAssertEqual(components.queryItems?.first(where: { $0.name == "city" })?.value, "成都")
+        XCTAssertEqual(components.queryItems?.first(where: { $0.name == "city" })?.value, "毛伙伴市")
         XCTAssertEqual(response.message, "合作医院已加载")
-        XCTAssertEqual(response.data?.city, "成都")
-        XCTAssertEqual(response.data?.hospitals.first?.name, "瑞派宠物医院高新院区")
+        XCTAssertEqual(response.data?.city, "毛伙伴市")
+        XCTAssertEqual(response.data?.hospitals.first?.name, "毛伙伴闭环验证医院")
         XCTAssertEqual(response.data?.hospitals.first?.verificationStatus, .verified)
         XCTAssertEqual(response.data?.hospitals.first?.partnershipStatus, .active)
         XCTAssertEqual(response.data?.hospitals.first?.hisEnabled, true)
@@ -127,6 +127,48 @@ final class SameCityRepositoryTests: XCTestCase {
         XCTAssertEqual(response.data?.id, "appointment-1")
         XCTAssertEqual(response.data?.petID, "pet-1")
         XCTAssertEqual(response.data?.status, .pending)
+    }
+
+    func testCancelHospitalAppointmentSendsAppointmentIDAndKeepsToastMessage() async throws {
+        let capturedRequest = CapturedSameCityRequest()
+        let repository = makeRepository { request in
+            capturedRequest.record(request)
+            return Self.jsonResponse(
+                statusCode: 200,
+                body:
+                """
+                {
+                  "success": true,
+                  "code": "samecity.hospital_appointment_cancelled",
+                  "message": "医院预约已取消",
+                  "data": {
+                    "id": "appointment-1",
+                    "owner_user_id": "user-1",
+                    "pet_id": "pet-1",
+                    "hospital_id": "hospital-1",
+                    "scheduled_at": "2026-06-15T09:30:00Z",
+                    "reason": "基础体检",
+                    "note": "希望安排上午到店",
+                    "status": "cancelled"
+                  }
+                }
+                """
+            )
+        }
+
+        let response = try await repository.cancelHospitalAppointment(
+            appointmentID: "appointment-1",
+            currentUserID: "user-1"
+        )
+
+        let request = try XCTUnwrap(capturedRequest.load())
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.url?.path, "/api/v1/same-city/hospital-appointments/appointment-1/cancel")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "x-maohuoban-user-id"), "user-1")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-access-token")
+        XCTAssertEqual(response.message, "医院预约已取消")
+        XCTAssertEqual(response.data?.id, "appointment-1")
+        XCTAssertEqual(response.data?.status, .cancelled)
     }
 
     private func makeRepository(

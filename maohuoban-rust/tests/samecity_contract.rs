@@ -172,9 +172,9 @@ async fn seed_his_partner_hospital(
         VALUES (
             $1,
             $2,
-            '成都',
-            '高新区',
-            '成都市高新区测试街 2 号',
+            '毛伙伴市',
+            '验证区',
+            '毛伙伴市验证区闭环路 188 号',
             '028-88880001',
             ARRAY['异常接诊', '病历回流']::text[],
             'verified',
@@ -207,7 +207,7 @@ async fn samecity_hospital_list_returns_verified_city_hospitals() {
         .router()
         .oneshot(empty_request(
             "GET",
-            "/api/v1/same-city/hospitals?city=成都",
+            "/api/v1/same-city/hospitals?city=毛伙伴市",
             Some(&user_id),
         ))
         .await
@@ -217,12 +217,12 @@ async fn samecity_hospital_list_returns_verified_city_hospitals() {
     let body = response_json(response).await;
     assert_eq!(body["success"], true);
     assert_eq!(body["code"], "samecity.hospitals_loaded");
-    assert_eq!(body["data"]["city"], "成都");
+    assert_eq!(body["data"]["city"], "毛伙伴市");
     assert_eq!(
         body["data"]["hospitals"][0]["id"],
         expected_hospital_id.to_string()
     );
-    assert_eq!(body["data"]["hospitals"][0]["city"], "成都");
+    assert_eq!(body["data"]["hospitals"][0]["city"], "毛伙伴市");
     assert_eq!(
         body["data"]["hospitals"][0]["verification_status"],
         "verified"
@@ -270,9 +270,9 @@ async fn samecity_hospital_list_returns_only_his_partner_hospitals() {
             (
                 $1,
                 '只认证未接入 HIS 的医院',
-                '成都',
-                '高新区',
-                '成都市高新区测试街 1 号',
+                '毛伙伴市',
+                '验证区',
+                '毛伙伴市验证区测试街 1 号',
                 ARRAY['体检']::text[],
                 'verified',
                 'candidate',
@@ -292,7 +292,7 @@ async fn samecity_hospital_list_returns_only_his_partner_hospitals() {
         .router()
         .oneshot(empty_request(
             "GET",
-            "/api/v1/same-city/hospitals?city=成都",
+            "/api/v1/same-city/hospitals?city=毛伙伴市",
             Some(&user_id),
         ))
         .await
@@ -335,7 +335,7 @@ async fn samecity_hospital_list_requires_authenticated_user() {
         .router()
         .oneshot(empty_request(
             "GET",
-            "/api/v1/same-city/hospitals?city=成都",
+            "/api/v1/same-city/hospitals?city=毛伙伴市",
             None,
         ))
         .await
@@ -379,7 +379,7 @@ async fn samecity_hospital_booking_creates_pending_appointment_for_current_pet()
         .router()
         .oneshot(empty_request(
             "GET",
-            "/api/v1/same-city/hospitals?city=成都",
+            "/api/v1/same-city/hospitals?city=毛伙伴市",
             Some(&user_id),
         ))
         .await
@@ -424,6 +424,95 @@ async fn samecity_hospital_booking_creates_pending_appointment_for_current_pet()
 }
 
 #[tokio::test]
+async fn samecity_hospital_booking_cancel_marks_current_user_appointment_cancelled() {
+    let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
+    app.reset().await;
+    let user_id = login_user_id(&app, "13800138123").await;
+    seed_his_partner_hospital(&app, "毛伙伴闭环验证医院").await;
+
+    let create_pet_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/pets",
+            json!({
+                "name": "奶糖",
+                "species": "cat",
+                "breed": "布偶",
+                "sex": "female",
+                "birthday": "2025-01-01"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("create pet");
+    assert_eq!(create_pet_response.status(), StatusCode::CREATED);
+    let pet_body = response_json(create_pet_response).await;
+    let pet_id = pet_body["data"]["id"].as_str().expect("pet id");
+
+    let hospitals_response = app
+        .router()
+        .oneshot(empty_request(
+            "GET",
+            "/api/v1/same-city/hospitals?city=毛伙伴市",
+            Some(&user_id),
+        ))
+        .await
+        .expect("list hospitals");
+    let hospitals_body = response_json(hospitals_response).await;
+    let hospital_id = hospitals_body["data"]["hospitals"][0]["id"]
+        .as_str()
+        .expect("hospital id");
+
+    let create_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            "/api/v1/same-city/hospital-appointments",
+            json!({
+                "hospital_id": hospital_id,
+                "pet_id": pet_id,
+                "scheduled_at": "2026-06-16T09:30:00Z",
+                "reason": "异常后就医",
+                "note": "取消预约合同测试"
+            }),
+            Some(&user_id),
+        ))
+        .await
+        .expect("book hospital");
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let create_body = response_json(create_response).await;
+    let appointment_id = create_body["data"]["id"].as_str().expect("appointment id");
+
+    let cancel_response = app
+        .router()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/same-city/hospital-appointments/{appointment_id}/cancel"),
+            json!({}),
+            Some(&user_id),
+        ))
+        .await
+        .expect("cancel hospital appointment");
+
+    assert_eq!(cancel_response.status(), StatusCode::OK);
+    let body = response_json(cancel_response).await;
+    assert_eq!(body["success"], true);
+    assert_eq!(body["code"], "samecity.hospital_appointment_cancelled");
+    assert_eq!(body["message"], "医院预约已取消");
+    assert_eq!(body["data"]["id"], appointment_id);
+    assert_eq!(body["data"]["status"], "cancelled");
+
+    let persisted_status: String =
+        sqlx::query_scalar("SELECT status FROM samecity_hospital_appointments WHERE id = $1")
+            .bind(uuid::Uuid::parse_str(appointment_id).expect("appointment uuid"))
+            .fetch_one(app.pool())
+            .await
+            .expect("load appointment status");
+    assert_eq!(persisted_status, "cancelled");
+}
+
+#[tokio::test]
 async fn samecity_hospital_booking_rejects_non_his_partner_hospital() {
     let app = maohuoban_rust::test_support::spawn_auth_test_app().await;
     app.reset().await;
@@ -449,9 +538,9 @@ async fn samecity_hospital_booking_rejects_non_his_partner_hospital() {
         VALUES (
             $1,
             '认证但未接入 HIS 的医院',
-            '成都',
-            '高新区',
-            '成都市高新区测试街 3 号',
+            '毛伙伴市',
+            '验证区',
+            '毛伙伴市验证区测试街 3 号',
             ARRAY['体检']::text[],
             'verified',
             'candidate',

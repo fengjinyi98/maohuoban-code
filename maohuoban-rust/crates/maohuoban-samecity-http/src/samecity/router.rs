@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{Query, State},
+    extract::{Path, Query, State},
     response::Response,
     routing::{get, post},
 };
@@ -41,6 +41,10 @@ pub fn build_samecity_router(samecity: Arc<SameCityService>) -> Router {
             "/api/v1/same-city/hospital-appointments",
             post(create_hospital_appointment),
         )
+        .route(
+            "/api/v1/same-city/hospital-appointments/{appointment_id}/cancel",
+            post(cancel_hospital_appointment),
+        )
         .with_state(SameCityHttpState::new(samecity))
 }
 
@@ -73,6 +77,25 @@ async fn create_hospital_appointment(
         Ok(appointment) => created_response(
             "samecity.hospital_appointment_created",
             "医院预约已提交",
+            HospitalAppointmentData::from(appointment),
+        ),
+        Err(error) => error_response(&error),
+    }
+}
+
+async fn cancel_hospital_appointment(
+    State(state): State<SameCityHttpState>,
+    actor: AuthenticatedUser,
+    Path(appointment_id): Path<uuid::Uuid>,
+) -> Response {
+    match state
+        .samecity
+        .cancel_hospital_appointment(actor.user_id(), appointment_id)
+        .await
+    {
+        Ok(appointment) => ok_response(
+            "samecity.hospital_appointment_cancelled",
+            "医院预约已取消",
             HospitalAppointmentData::from(appointment),
         ),
         Err(error) => error_response(&error),

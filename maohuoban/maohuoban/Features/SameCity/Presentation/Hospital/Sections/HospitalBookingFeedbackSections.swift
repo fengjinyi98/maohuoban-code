@@ -33,16 +33,32 @@ struct HospitalBookingSubmittingSection: View {
     }
 }
 
+// HospitalBookingCancellingSection 医院预约取消态
+// 核心职责：
+// - 展示取消预约过程
+// - 阻止用户重复触发取消
+struct HospitalBookingCancellingSection: View {
+    var body: some View {
+        HospitalBookingMessageSection(
+            systemImage: "calendar.badge.minus",
+            title: "正在取消预约",
+            message: "请稍候",
+            color: MHBTheme.ColorToken.primary.color,
+            showsProgress: true
+        )
+    }
+}
+
 // HospitalBookingEmptySection 医院列表空态
 // 核心职责：
-// - 展示当前城市没有 HIS 合作医院
+// - 展示暂无 HIS 合作医院
 // - 明确非合作医院应走诊前资料包辅助路径
 struct HospitalBookingEmptySection: View {
     var body: some View {
         HospitalBookingMessageSection(
             systemImage: "building.2.crop.circle",
             title: "暂无合作医院",
-            message: "当前城市暂未开通合作医院，可先生成诊前资料包带去线下就医",
+            message: "暂未找到可预约的验证闭环医院，可先生成诊前资料包带去线下就医",
             color: MHBTheme.ColorToken.warning.color
         )
     }
@@ -68,13 +84,30 @@ struct HospitalBookingUnavailableSection: View {
 // - 展示已创建的预约状态
 // - 提示后续医院确认流程
 struct HospitalBookingSuccessSection: View {
+    let appointment: HospitalAppointment
+    let isBusy: Bool
+    let onCancel: () -> Void
+
     var body: some View {
-        HospitalBookingMessageSection(
-            systemImage: "checkmark.seal.fill",
-            title: "预约已提交",
-            message: "当前状态为待确认，合作医院确认后会进入后续沟通",
-            color: MHBTheme.ColorToken.success.color
-        )
+        VStack(spacing: MHBTheme.Spacing.s3) {
+            HospitalBookingMessageSection(
+                systemImage: appointment.status == .cancelled ? "calendar.badge.minus" : "checkmark.seal.fill",
+                title: appointment.status == .cancelled ? "预约已取消" : "预约已提交",
+                message: appointment.status == .cancelled ? "这次预约不会进入医院待处理队列" : "当前状态为待确认，合作医院确认后会进入后续沟通",
+                color: appointment.status == .cancelled ? MHBTheme.ColorToken.labelSecondary.color : MHBTheme.ColorToken.success.color
+            )
+
+            if appointment.status != .cancelled {
+                Button(role: .destructive, action: onCancel) {
+                    Label("取消预约", systemImage: "calendar.badge.minus")
+                        .font(MHBTheme.Typography.callout)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(isBusy)
+                .accessibilityIdentifier("samecity.hospitalBooking.cancel")
+            }
+        }
     }
 }
 

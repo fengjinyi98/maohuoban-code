@@ -29,4 +29,10 @@ pub trait SameCityRepository: Send + Sync {
         &self,
         input: BookHospitalAppointmentInput,
     ) -> SameCityResult<HospitalAppointment>;
+
+    async fn cancel_hospital_appointment(
+        &self,
+        owner_user_id: Uuid,
+        appointment_id: Uuid,
+    ) -> SameCityResult<HospitalAppointment>;
 }

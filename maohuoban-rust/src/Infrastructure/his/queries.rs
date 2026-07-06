@@ -141,6 +141,7 @@ pub async fn load_appointments_for_tenant(
         WHERE h.his_tenant_id = $1
           AND h.partnership_status = 'active'
           AND h.his_enabled = true
+          AND a.status <> 'cancelled'
         ORDER BY a.scheduled_at ASC
         "#,
     )
