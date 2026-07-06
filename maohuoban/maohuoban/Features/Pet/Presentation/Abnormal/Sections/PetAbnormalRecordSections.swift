@@ -102,7 +102,7 @@ struct PetAbnormalSymptomSection: View {
 // PetAbnormalSeveritySection 异常程度区
 // 核心职责：
 // - 展示异常程度单选
-// - 用说明文本帮助用户做初步判断
+// - 只让用户选择记录程度，不追加决断型说明
 struct PetAbnormalSeveritySection: View {
     @Binding var severity: PetAbnormalSeverity
 
@@ -117,14 +117,8 @@ struct PetAbnormalSeveritySection: View {
                             Image(systemName: severity == option ? "checkmark.circle.fill" : "circle")
                                 .font(.system(size: 18, weight: .semibold))
 
-                            VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
-                                Text(option.title)
-                                    .font(MHBTheme.Typography.callout.weight(.semibold))
-
-                                Text(option.subtitle)
-                                    .font(MHBTheme.Typography.caption)
-                                    .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
-                            }
+                            Text(option.title)
+                                .font(MHBTheme.Typography.callout.weight(.semibold))
 
                             Spacer(minLength: MHBTheme.Spacing.s2)
                         }

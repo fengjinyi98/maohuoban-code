@@ -295,10 +295,6 @@ private struct PetAbnormalRecordDetailHeader: View {
                         .padding(.horizontal, MHBTheme.Spacing.s3)
                         .padding(.vertical, MHBTheme.Spacing.s2)
                         .background(tint.opacity(0.12), in: Capsule())
-
-                    Text(severity.subtitle)
-                        .font(MHBTheme.Typography.callout)
-                        .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                 }
             }
         }

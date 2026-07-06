@@ -84,10 +84,6 @@ enum PetAbnormalSeverity: String, CaseIterable, Identifiable, Hashable {
     }
 
     var subtitle: String {
-        switch self {
-        case .mild: "偶发，状态基本稳定"
-        case .obvious: "持续出现，需要观察"
-        case .severe: "影响状态，建议尽快处理"
-        }
+        ""
     }
 }

@@ -4,7 +4,7 @@ import MaohuobanDesignSystem
 // PetAbnormalRecordScreen 异常记录页面
 // 核心职责：
 // - 收集宠物异常的症状、程度、具体表现、备注和照片线索
-// - 使用自绘导航栏承载返回和宠物切换基础设施
+// - 使用系统导航栏承载标题和宠物切换基础设施
 // - 保存异常事件后回到首页并触发刷新
 struct PetAbnormalRecordScreen: View {
     @Environment(\.dismiss) private var dismiss
@@ -65,7 +65,7 @@ struct PetAbnormalRecordScreen: View {
                         )
                     }
                     .padding(.horizontal, MHBTheme.Spacing.s5)
-                    .padding(.top, topContentPadding(geometrySafeAreaTop: proxy.safeAreaInsets.top))
+                    .padding(.top, MHBTheme.Spacing.s5)
                     .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
@@ -79,25 +79,23 @@ struct PetAbnormalRecordScreen: View {
                 )
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
                 .zIndex(2)
-
-                PetAbnormalRecordTopChrome(
-                    selectedItem: currentPetSwitcherItem,
-                    items: petSwitcherItems,
-                    isDisabled: petSwitcherItems.isEmpty,
-                    onBack: { dismiss() },
-                    onSelect: selectPet
-                )
-                .padding(.horizontal, MHBTheme.Spacing.s4)
-                .mhbTopChromeAligned(geometrySafeAreaTop: proxy.safeAreaInsets.top)
-                .zIndex(3)
             }
             .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }
-        .ignoresSafeArea(.container, edges: [.top, .bottom])
-        .navigationTitle("")
+        .ignoresSafeArea(.container, edges: [.bottom])
+        .navigationTitle("异常")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .navigationBar)
-        .navigationBarBackButtonHidden(true)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                PetAbnormalRecordPetSwitcherToolbarItem(
+                    selectedItem: currentPetSwitcherItem,
+                    items: petSwitcherItems,
+                    isDisabled: petSwitcherItems.isEmpty,
+                    onSelect: selectPet
+                )
+            }
+        }
         .petWriteToastBridge(
             phase: store.phase,
             successMessage: store.successMessage
@@ -121,16 +119,6 @@ struct PetAbnormalRecordScreen: View {
             )
         }
         .accessibilityIdentifier("pet.abnormalRecord.screen")
-    }
-
-    private var topChromeHeight: CGFloat {
-        48
-    }
-
-    private func topContentPadding(geometrySafeAreaTop: CGFloat) -> CGFloat {
-        MHBTopChromePositionResolver.resolvedTopInset(geometrySafeAreaTop: geometrySafeAreaTop)
-            + topChromeHeight
-            + MHBTheme.Spacing.s5
     }
 
     private var currentPetID: String? {

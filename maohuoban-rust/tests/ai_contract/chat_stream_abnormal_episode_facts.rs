@@ -737,7 +737,6 @@ async fn abnormal_followup_agent_can_save_planned_followup_from_session_context(
                  data: [DONE]\n\n",
             );
     });
-
     let answer_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
@@ -866,7 +865,6 @@ async fn abnormal_followup_plan_can_save_branch_actions_from_session_context() {
                  data: [DONE]\n\n",
             );
     });
-
     let response = app
         .router()
         .clone()
@@ -907,6 +905,113 @@ async fn abnormal_followup_plan_can_save_branch_actions_from_session_context() {
         saved,
         json!(["update_observation", "chat_with_agent", "book_clinic"])
     );
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn abnormal_followup_plan_rejects_body_with_conflicting_local_event_date() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let server = MockServer::start();
+    let mut config = maohuoban_rust::BackendConfig::local_test();
+    config.ai_llm_provider_config = maohuoban_ai_infrastructure::provider::OpenAiCompatibleConfig {
+        base_url: server.base_url(),
+        api_key: "contract-api-key".to_owned(),
+        model: "contract-model".to_owned(),
+        timeout_secs: 5,
+        temperature: 0.2,
+        max_output_tokens: None,
+        response_format: None,
+    }
+    .into();
+    let app = maohuoban_rust::test_support::spawn_auth_test_app_with_config(config).await;
+    app.reset().await;
+    let fixture = create_abnormal_episode_fixture(&app).await;
+    let (source_hint_id, agent_followup_id) = insert_due_agent_followup_hint(&app, &fixture).await;
+
+    let planned_due_at = "2026-07-06T12:00:00Z";
+    let save_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("save_abnormal_episode_followup_plan")
+            .matches(request_without_tool_result);
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_save_bad_date_plan\",\"function\":{\"name\":\"save_abnormal_episode_followup_plan\",\"arguments\":\"{\\\"due_at\\\":\\\""
+                    .to_owned()
+                    + planned_due_at
+                    + "\\\",\\\"message_title\\\":\\\"馒头情况追踪提醒\\\",\\\"message_body\\\":\\\"距离昨天（7/5）发现馒头出现明显异常已过去约 8 小时，现在情况怎么样了？\\\",\\\"rationale\\\":\\\"严重异常需要追踪。\\\",\\\"time_decision\\\":{\\\"now_at\\\":\\\"2026-07-06T07:23:28Z\\\",\\\"episode_started_at\\\":\\\"2026-07-05T23:20:00Z\\\",\\\"elapsed_minutes\\\":483,\\\"selected_due_at\\\":\\\""
+                    + planned_due_at
+                    + "\\\",\\\"delay_minutes\\\":277,\\\"urgency_window\\\":\\\"high\\\",\\\"reason\\\":\\\"严重异常需要追踪\\\",\\\"time_tool_used\\\":false},\\\"recommended_actions\\\":[\\\"update_observation\\\",\\\"chat_with_agent\\\"]}\"}}]}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+    let answer_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("\"tool_call_id\":\"call_save_bad_date_plan\"");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"这次追踪计划没有保存，请重新生成提醒文案。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":8,\"total_tokens\":20}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &fixture.access_token,
+            json!({
+                "message": "根据这次异常继续安排下一次追踪。",
+                "surface": "home_private",
+                "selected_pet_id": fixture.pet_id.to_string(),
+                "chat_context_kind": "abnormal_episode_followup",
+                "abnormal_episode_id": fixture.episode_id.to_string(),
+                "source_hint_id": source_hint_id.to_string(),
+                "agent_followup_id": agent_followup_id.to_string()
+            }),
+        ))
+        .await
+        .expect("send abnormal followup invalid date plan");
+
+    let status = response.status();
+    let text = response_text(response).await;
+    save_mock.assert();
+    answer_mock.assert();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "stream should surface tool error without transport failure, body: {text}"
+    );
+    assert!(
+        text.contains("这次追踪计划没有保存"),
+        "SSE should expose validation error, got: {text}"
+    );
+
+    let saved: (String, String) = sqlx::query_as(
+        r"
+        SELECT status, message_body
+        FROM agent_proactive_followups
+        WHERE id = $1
+        ",
+    )
+    .bind(agent_followup_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load unchanged followup plan");
+
+    assert_eq!(saved.0, "due");
+    assert!(!saved.1.contains("昨天（7/5）"));
 }
 
 async fn send_abnormal_followup_entry_request(

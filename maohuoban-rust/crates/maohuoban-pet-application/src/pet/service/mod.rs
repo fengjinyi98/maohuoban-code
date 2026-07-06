@@ -8,7 +8,7 @@ mod validation;
 
 use std::sync::Arc;
 
-use chrono::Utc;
+use chrono::{DateTime, Datelike, FixedOffset, Utc};
 use maohuoban_pet_domain::pet::{
     EventKind, PetError, PetEvent, PetProfile, PetResult, PetTimeline, PetTimelineEntry,
 };
@@ -281,6 +281,7 @@ impl PetService {
         if input.rationale.chars().count() > 500 {
             return Err(PetError::InvalidInput("追踪规划理由过长".to_owned()));
         }
+        validate_followup_message_date_consistency(&input.message_body, &input.planning_decision)?;
         if input.recommended_actions.is_empty() {
             return Err(PetError::InvalidInput("推荐动作不能为空".to_owned()));
         }
@@ -623,6 +624,91 @@ fn validate_quick_fact_update_payload(input: &UpdatePetEvent) -> PetResult<()> {
         "poop_normal" | "energy_normal" | "appetite_normal" => Ok(()),
         _ => Err(PetError::InvalidInput("快捷状态类型无效".to_owned())),
     }
+}
+
+fn validate_followup_message_date_consistency(
+    message_body: &str,
+    planning_decision: &serde_json::Value,
+) -> PetResult<()> {
+    let Some(now_at) = planning_decision
+        .get("now_at")
+        .and_then(serde_json::Value::as_str)
+        .and_then(parse_utc_datetime)
+    else {
+        return Ok(());
+    };
+    let Some(episode_started_at) = planning_decision
+        .get("episode_started_at")
+        .and_then(serde_json::Value::as_str)
+        .and_then(parse_utc_datetime)
+    else {
+        return Ok(());
+    };
+
+    let shanghai_offset = FixedOffset::east_opt(8 * 60 * 60).expect("valid shanghai offset");
+    let now_local = now_at.with_timezone(&shanghai_offset).date_naive();
+    let episode_local = episode_started_at
+        .with_timezone(&shanghai_offset)
+        .date_naive();
+    let yesterday_local = now_local.pred_opt();
+
+    if message_body.contains("昨天")
+        && Some(episode_local) != yesterday_local
+        && mentions_abnormal_event_date_context(message_body)
+    {
+        return Err(PetError::InvalidInput(
+            "追踪提醒正文日期与异常发生日期不一致".to_owned(),
+        ));
+    }
+
+    let episode_date_mentions = local_date_mentions(episode_local.month(), episode_local.day());
+    let mismatched_date_mentions = adjacent_local_date_mentions(now_local, episode_local);
+    if mentions_abnormal_event_date_context(message_body)
+        && mismatched_date_mentions
+            .iter()
+            .any(|mention| message_body.contains(mention))
+        && !episode_date_mentions
+            .iter()
+            .any(|mention| message_body.contains(mention))
+    {
+        return Err(PetError::InvalidInput(
+            "追踪提醒正文日期与异常发生日期不一致".to_owned(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn parse_utc_datetime(value: &str) -> Option<DateTime<Utc>> {
+    DateTime::parse_from_rfc3339(value)
+        .ok()
+        .map(|datetime| datetime.with_timezone(&Utc))
+}
+
+fn mentions_abnormal_event_date_context(message_body: &str) -> bool {
+    ["发现", "出现", "记录", "异常", "发生"]
+        .iter()
+        .any(|keyword| message_body.contains(keyword))
+}
+
+fn local_date_mentions(month: u32, day: u32) -> Vec<String> {
+    vec![
+        format!("{month}/{day}"),
+        format!("{month}月{day}日"),
+        format!("{month} 月 {day} 日"),
+    ]
+}
+
+fn adjacent_local_date_mentions(
+    now_local: chrono::NaiveDate,
+    episode_local: chrono::NaiveDate,
+) -> Vec<String> {
+    [now_local.pred_opt(), now_local.succ_opt()]
+        .into_iter()
+        .flatten()
+        .filter(|date| *date != episode_local)
+        .flat_map(|date| local_date_mentions(date.month(), date.day()))
+        .collect()
 }
 
 /// merged_timeline_entries 合并宠物事件与生命周期事实

@@ -99,6 +99,76 @@ final class NavigationArchitectureBoundaryTests: XCTestCase {
         )
     }
 
+    // testAbnormalRecordScreenKeepsSystemNavigation 固化异常记录页系统导航
+    // 核心职责：
+    // - 防止普通 push 页面隐藏系统导航栏和系统返回按钮
+    // - 保留系统侧滑返回能力，避免导航转场期间多源更新
+    func testAbnormalRecordScreenKeepsSystemNavigation() throws {
+        let repositoryRoot = try Self.repositoryRoot()
+        let sourcePath = repositoryRoot.appendingPathComponent(
+            "maohuoban/maohuoban/Features/Pet/Presentation/Abnormal/Screens/PetAbnormalRecordScreen.swift"
+        )
+        let source = try String(contentsOf: sourcePath, encoding: .utf8)
+
+        XCTAssertTrue(
+            source.contains(".navigationTitle(\"异常\")"),
+            "Abnormal record screen must expose title through the system navigation bar."
+        )
+        XCTAssertTrue(
+            source.contains(".toolbar(.visible, for: .navigationBar)"),
+            "Abnormal record screen must keep the system navigation bar visible."
+        )
+        XCTAssertFalse(
+            source.contains(".toolbar(.hidden, for: .navigationBar)"),
+            "Abnormal record screen must not hide the system navigation bar."
+        )
+        XCTAssertFalse(
+            source.contains(".navigationBarBackButtonHidden(true)"),
+            "Abnormal record screen must not hide the system back button."
+        )
+        XCTAssertFalse(
+            source.contains("PetAbnormalRecordBackButton"),
+            "Abnormal record screen must not reintroduce a custom back button for ordinary push navigation."
+        )
+    }
+
+    // testPetSwitcherToolbarChromeAvoidsNestedLiquidGlass 固化系统导航栏宠物切换外观
+    // 核心职责：
+    // - 为通用宠物切换胶囊提供 toolbar 专用无 glass 模式
+    // - 防止系统 toolbar 容器与组件自身 Liquid Glass 叠加
+    func testPetSwitcherToolbarChromeAvoidsNestedLiquidGlass() throws {
+        let repositoryRoot = try Self.repositoryRoot()
+        let componentSourcePath = repositoryRoot.appendingPathComponent(
+            "maohuoban/maohuoban/Infrastructure/SwiftUI/PetSwitcher/MHBPetSwitcherComponents.swift"
+        )
+        let abnormalToolbarSourcePath = repositoryRoot.appendingPathComponent(
+            "maohuoban/maohuoban/Features/Pet/Presentation/Abnormal/Sections/PetAbnormalRecordTopChrome.swift"
+        )
+        let componentSource = try String(contentsOf: componentSourcePath, encoding: .utf8)
+        let abnormalToolbarSource = try String(contentsOf: abnormalToolbarSourcePath, encoding: .utf8)
+
+        XCTAssertTrue(
+            componentSource.contains("enum MHBPetSwitcherCapsuleChrome"),
+            "Pet switcher capsule must expose a chrome mode instead of forcing all call sites to use Liquid Glass."
+        )
+        XCTAssertTrue(
+            componentSource.contains("case toolbar"),
+            "Pet switcher capsule must provide a toolbar mode for system navigation toolbar usage."
+        )
+        XCTAssertTrue(
+            componentSource.contains("MHBPetSwitcherCapsulePlainChrome"),
+            "Toolbar mode must render through a plain chrome wrapper without applying glassEffect."
+        )
+        XCTAssertTrue(
+            componentSource.contains(".glassEffect(.regular.interactive(), in: .capsule)"),
+            "Default custom chrome mode must keep the existing Liquid Glass appearance."
+        )
+        XCTAssertTrue(
+            abnormalToolbarSource.contains("chrome: .toolbar"),
+            "System navigation toolbar pet switcher must use the plain toolbar chrome to avoid nested Liquid Glass containers."
+        )
+    }
+
     func testFeedInfrastructureUsesValueBasedNavigationOnly() throws {
         let repositoryRoot = try Self.repositoryRoot()
         let checkedFiles = [
