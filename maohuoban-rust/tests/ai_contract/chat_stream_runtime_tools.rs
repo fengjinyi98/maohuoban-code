@@ -439,6 +439,72 @@ async fn ai_chat_stream_prepare_and_commit_observation_write() {
     assert_eq!(event_count, 1);
 }
 
+/// 准备写入确认任务时不应先流出模型自由文本
+/// 核心职责：
+/// - 锁定同一轮模型先输出文本再调用确认工具的边界
+/// - 确认用户可见结果以授权卡为准，避免写入前自由文本先进入前端
+#[tokio::test]
+async fn ai_chat_stream_suppresses_model_delta_before_confirmation_task() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let server = MockServer::start();
+    let app = spawn_runtime_tool_test_app(&server).await;
+    app.reset().await;
+    let access_token =
+        login_and_get_token(&app, "13800139031", "ios-ai-runtime-confirm-card").await;
+    let pet = create_pet(&app, &access_token, "馒头").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+
+    let prepare_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("prepare_pet_observation_write")
+            .body_contains("褐色分泌物");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"我先帮你分析一下，再准备记录。\"}}]}\n\n\
+                 data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_prepare\",\"function\":{\"name\":\"prepare_pet_observation_write\",\"arguments\":\"{\\\"note\\\":\\\"馒头今早呕吐，呕吐物为褐色分泌物。精神正常，食欲正常。\\\"}\"}}]}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "馒头吐出来的好像是褐色分泌物，精神食欲没变化",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send prepare observation stream request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let text = response_text(response).await;
+    prepare_mock.assert();
+
+    assert!(
+        !text.contains("event: answer_delta"),
+        "confirmation prepare stream should not emit model text before authorization card, got: {text}"
+    );
+    let confirmation_event = sse_event_data_all(&text, "confirmation_task")
+        .into_iter()
+        .next()
+        .expect("confirmation task event");
+    assert_eq!(
+        confirmation_event["preview"]["note"].as_str(),
+        Some("馒头今早呕吐，呕吐物为褐色分泌物。精神正常，食欲正常。")
+    );
+}
+
 /// 普通 Agent 会话可准备异常创建确认任务
 /// 核心职责：
 /// - 验证 Agent 能把自然语言异常描述整理成待授权异常创建草稿

@@ -25,6 +25,7 @@ pub(super) struct AgentEventSseProjector {
     pending_delta_text: String,
     streamed_delta_text: String,
     suppress_model_delta: bool,
+    hold_model_delta_until_finish: bool,
     identity_context_tool_required: bool,
     identity_context_tool_succeeded: bool,
     visible_output_plan: VisibleOutputPlan,
@@ -48,6 +49,7 @@ impl AgentEventSseProjector {
             pending_delta_text: String::new(),
             streamed_delta_text: String::new(),
             suppress_model_delta: false,
+            hold_model_delta_until_finish: true,
             identity_context_tool_required,
             identity_context_tool_succeeded: false,
             visible_output_plan,
@@ -80,11 +82,12 @@ impl AgentEventSseProjector {
             AgentEvent::ModelCallFinished {
                 finish_reason: reason,
                 usage,
+                turn_id,
                 ..
             } => {
                 self.latest_usage = usage;
                 self.finish_reason = reason;
-                Vec::new()
+                self.project_model_call_finished(turn_id, reason)
             }
             AgentEvent::ToolFinished {
                 turn_id,
@@ -138,10 +141,13 @@ impl AgentEventSseProjector {
                 retryable,
                 ..
             } => Self::project_error(turn_id, error_code, retryable),
+            AgentEvent::ModelCallStarted { .. } => {
+                self.hold_model_delta_until_finish = true;
+                Vec::new()
+            }
             AgentEvent::TurnStarted { .. }
             | AgentEvent::PolicyChecked { .. }
             | AgentEvent::ToolStarted { .. }
-            | AgentEvent::ModelCallStarted { .. }
             | AgentEvent::NeedsClarification { .. } => Vec::new(),
         }
     }
@@ -311,6 +317,28 @@ impl AgentEventSseProjector {
         text: &str,
     ) -> Vec<UserVisibleTurnEvent> {
         self.pending_delta_text.push_str(text);
+        if self.hold_model_delta_until_finish {
+            return Vec::new();
+        }
+        self.flush_pending_message_delta(turn_id)
+    }
+
+    fn project_model_call_finished(
+        &mut self,
+        turn_id: AgentTurnId,
+        finish_reason: LlmFinishReason,
+    ) -> Vec<UserVisibleTurnEvent> {
+        if finish_reason == LlmFinishReason::ToolCalls {
+            self.pending_delta_text.clear();
+            self.suppress_model_delta = false;
+            self.hold_model_delta_until_finish = true;
+            return Vec::new();
+        }
+        self.hold_model_delta_until_finish = false;
+        self.flush_pending_message_delta(turn_id)
+    }
+
+    fn flush_pending_message_delta(&mut self, turn_id: AgentTurnId) -> Vec<UserVisibleTurnEvent> {
         if self.suppress_model_delta {
             return Vec::new();
         }
