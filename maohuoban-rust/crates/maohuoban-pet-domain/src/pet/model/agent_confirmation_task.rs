@@ -32,6 +32,7 @@ pub struct AgentConfirmationTask {
 pub enum ConfirmationTaskKind {
     DietChangeConfirmation,
     SymptomFollowup,
+    AbnormalSymptomCreation,
     RiskContextConfirmation,
 }
 
@@ -60,6 +61,10 @@ mod tests {
             "\"symptom_followup\""
         );
         assert_eq!(
+            serde_json::to_string(&ConfirmationTaskKind::AbnormalSymptomCreation).unwrap(),
+            "\"abnormal_symptom_creation\""
+        );
+        assert_eq!(
             serde_json::to_string(&ConfirmationTaskKind::RiskContextConfirmation).unwrap(),
             "\"risk_context_confirmation\""
         );
@@ -74,6 +79,10 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<ConfirmationTaskKind>("\"symptom_followup\"").unwrap(),
             ConfirmationTaskKind::SymptomFollowup
+        );
+        assert_eq!(
+            serde_json::from_str::<ConfirmationTaskKind>("\"abnormal_symptom_creation\"").unwrap(),
+            ConfirmationTaskKind::AbnormalSymptomCreation
         );
         assert_eq!(
             serde_json::from_str::<ConfirmationTaskKind>("\"risk_context_confirmation\"").unwrap(),

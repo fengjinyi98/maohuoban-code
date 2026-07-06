@@ -66,10 +66,10 @@ use thiserror::Error;
 
 use crate::infrastructure::ai::{
     PetServiceAbnormalEpisodeFactProvider, PetServiceAbnormalFollowupPlanProvider,
-    PetServiceAuthorizedPetCatalog, PetServiceDietConfirmationCandidateProvider,
-    PetServiceDietFactProvider, PetServiceFoodInventoryHintProvider,
-    PetServiceHealthQuickFactProvider, PetServiceIdentityFactProvider,
-    PetServiceObservationWriteProvider,
+    PetServiceAbnormalSymptomCreationProvider, PetServiceAuthorizedPetCatalog,
+    PetServiceDietConfirmationCandidateProvider, PetServiceDietFactProvider,
+    PetServiceFoodInventoryHintProvider, PetServiceHealthQuickFactProvider,
+    PetServiceIdentityFactProvider, PetServiceObservationWriteProvider,
 };
 
 /// `BackendConfig` 后端启动配置
@@ -510,6 +510,13 @@ fn build_ai_http_state(
                 Arc::clone(pet_service),
                 confirmation_tasks.clone(),
             )),
+            abnormal_symptom_creation_provider: Arc::new(
+                PetServiceAbnormalSymptomCreationProvider::new(
+                    Arc::clone(pet_service),
+                    ai_session_pool.clone(),
+                    confirmation_tasks.clone(),
+                ),
+            ),
             abnormal_followup_plan_provider: Arc::new(PetServiceAbnormalFollowupPlanProvider::new(
                 Arc::clone(pet_service),
             )),
@@ -518,6 +525,13 @@ fn build_ai_http_state(
             Arc::clone(pet_service),
             confirmation_tasks.clone(),
         )),
+        abnormal_symptom_creation_provider: Arc::new(
+            PetServiceAbnormalSymptomCreationProvider::new(
+                Arc::clone(pet_service),
+                ai_session_pool.clone(),
+                confirmation_tasks.clone(),
+            ),
+        ),
         confirmation_task_repository: confirmation_tasks,
     }
 }

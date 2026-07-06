@@ -20,9 +20,9 @@ use maohuoban_ai_application::ai::pet_resolver::AiPetResolver;
 use maohuoban_ai_application::ai::ports::{
     AbnormalFollowupPlanProvider, AiSessionRepository, ChatTurnTransactionPort,
     FoodInventoryHintProvider, LlmProvider, MemoryRepository, PetAbnormalEpisodeFactProvider,
-    PetDietConfirmationCandidateProvider, PetDietFactProvider, PetHealthQuickFactProvider,
-    PetIdentityFactProvider, PetObservationWriteProvider, SessionSummaryRepository,
-    SessionTurnRepository,
+    PetAbnormalSymptomCreationProvider, PetDietConfirmationCandidateProvider, PetDietFactProvider,
+    PetHealthQuickFactProvider, PetIdentityFactProvider, PetObservationWriteProvider,
+    SessionSummaryRepository, SessionTurnRepository,
 };
 use maohuoban_ai_application::ai::runtime::AgentRuntimeEngineMode;
 use maohuoban_ai_application::ai::tools::ToolRegistry;
@@ -60,6 +60,7 @@ pub struct AiHttpState {
     pub pet_resolver: Arc<AiPetResolver>,
     pub pet_context_providers: AiPetContextProviders,
     pub observation_write_provider: Arc<dyn PetObservationWriteProvider>,
+    pub abnormal_symptom_creation_provider: Arc<dyn PetAbnormalSymptomCreationProvider>,
     pub confirmation_task_repository: Arc<dyn AgentConfirmationTaskRepository>,
 }
 
@@ -76,6 +77,7 @@ pub struct AiPetContextProviders {
     pub food_inventory_hint_provider: Arc<dyn FoodInventoryHintProvider>,
     pub diet_confirmation_candidate_provider: Arc<dyn PetDietConfirmationCandidateProvider>,
     pub observation_write_provider: Arc<dyn PetObservationWriteProvider>,
+    pub abnormal_symptom_creation_provider: Arc<dyn PetAbnormalSymptomCreationProvider>,
     pub abnormal_followup_plan_provider: Arc<dyn AbnormalFollowupPlanProvider>,
 }
 
@@ -91,6 +93,7 @@ pub struct AiPetContextProviderParts {
     pub food_inventory_hint_provider: Arc<dyn FoodInventoryHintProvider>,
     pub diet_confirmation_candidate_provider: Arc<dyn PetDietConfirmationCandidateProvider>,
     pub observation_write_provider: Arc<dyn PetObservationWriteProvider>,
+    pub abnormal_symptom_creation_provider: Arc<dyn PetAbnormalSymptomCreationProvider>,
     pub abnormal_followup_plan_provider: Arc<dyn AbnormalFollowupPlanProvider>,
 }
 
@@ -106,6 +109,7 @@ impl AiPetContextProviders {
             food_inventory_hint_provider: parts.food_inventory_hint_provider,
             diet_confirmation_candidate_provider: parts.diet_confirmation_candidate_provider,
             observation_write_provider: parts.observation_write_provider,
+            abnormal_symptom_creation_provider: parts.abnormal_symptom_creation_provider,
             abnormal_followup_plan_provider: parts.abnormal_followup_plan_provider,
         }
     }

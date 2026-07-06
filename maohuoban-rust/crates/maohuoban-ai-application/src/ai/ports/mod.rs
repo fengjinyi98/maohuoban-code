@@ -6,6 +6,7 @@
 
 pub mod abnormal_episode_facts;
 pub mod abnormal_followup_plan;
+pub mod abnormal_symptom_creation;
 pub mod chat_turn_transaction;
 pub mod diet_confirmation_candidates;
 pub mod diet_context;
@@ -29,6 +30,10 @@ pub use abnormal_episode_facts::{
 };
 pub use abnormal_followup_plan::{
     AbnormalFollowupPlanDraft, AbnormalFollowupPlanProvider, SavedAbnormalFollowupPlan,
+};
+pub use abnormal_symptom_creation::{
+    AbnormalSymptomCreationDraft, CommittedAbnormalSymptomCreation,
+    PetAbnormalSymptomCreationProvider,
 };
 pub use chat_turn_transaction::{ChatTurnTransactionPort, FinalizerTxInput, IngressTxInput};
 pub use diet_confirmation_candidates::PetDietConfirmationCandidateProvider;

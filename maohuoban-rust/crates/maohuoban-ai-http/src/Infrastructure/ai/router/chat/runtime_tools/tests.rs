@@ -42,6 +42,7 @@ mod tests {
     struct EmptySessionTurnRepository;
     struct EmptyChatTurnTransaction;
     struct EmptySessionSummaryRepository;
+    struct EmptyAbnormalSymptomCreationProvider;
     struct EmptyAbnormalFollowupPlanProvider;
     struct EmptyAgentConfirmationTaskRepository;
 
@@ -102,6 +103,16 @@ mod tests {
             _actor_user_id: Uuid,
         ) -> AiResult<()> {
             Ok(())
+        }
+
+        async fn bind_session_to_abnormal_episode_followup(
+            &self,
+            _session_id: Uuid,
+            _actor_user_id: Uuid,
+            _abnormal_episode_id: Uuid,
+            _agent_followup_id: Uuid,
+        ) -> AiResult<Option<AiChatSession>> {
+            Ok(None)
         }
 
         async fn mark_abnormal_episode_context_deleted(
@@ -412,6 +423,38 @@ mod tests {
     }
 
     #[async_trait]
+    impl maohuoban_ai_application::ai::ports::PetAbnormalSymptomCreationProvider
+        for EmptyAbnormalSymptomCreationProvider
+    {
+        async fn prepare_abnormal_symptom_creation(
+            &self,
+            _actor_user_id: Uuid,
+            _pet_id: Uuid,
+            _session_id: Uuid,
+            _draft: maohuoban_ai_application::ai::ports::AbnormalSymptomCreationDraft,
+        ) -> maohuoban_pet_domain::pet::PetResult<
+            maohuoban_ai_application::ai::ports::PreparedObservationWrite,
+        > {
+            Err(maohuoban_pet_domain::pet::PetError::InvalidInput(
+                "empty abnormal symptom creation provider".to_owned(),
+            ))
+        }
+
+        async fn commit_abnormal_symptom_creation(
+            &self,
+            _actor_user_id: Uuid,
+            _pet_id: Uuid,
+            _confirmation_task_id: Uuid,
+        ) -> maohuoban_pet_domain::pet::PetResult<
+            maohuoban_ai_application::ai::ports::CommittedAbnormalSymptomCreation,
+        > {
+            Err(maohuoban_pet_domain::pet::PetError::InvalidInput(
+                "empty abnormal symptom creation provider".to_owned(),
+            ))
+        }
+    }
+
+    #[async_trait]
     impl AbnormalFollowupPlanProvider for EmptyAbnormalFollowupPlanProvider {
         async fn save_followup_plan(
             &self,
@@ -665,6 +708,7 @@ mod tests {
                 food_inventory_hint_provider: provider.clone(),
                 diet_confirmation_candidate_provider: provider,
                 observation_write_provider: Arc::new(EmptyObservationWriteProvider),
+                abnormal_symptom_creation_provider: Arc::new(EmptyAbnormalSymptomCreationProvider),
                 abnormal_followup_plan_provider: Arc::new(EmptyAbnormalFollowupPlanProvider),
             }),
             session_repository: Arc::new(EmptySessionRepository),
@@ -695,6 +739,7 @@ mod tests {
                 food_inventory_hint_provider: provider.clone(),
                 diet_confirmation_candidate_provider: provider,
                 observation_write_provider: Arc::new(EmptyObservationWriteProvider),
+                abnormal_symptom_creation_provider: Arc::new(EmptyAbnormalSymptomCreationProvider),
                 abnormal_followup_plan_provider: Arc::new(EmptyAbnormalFollowupPlanProvider),
             }),
             session_repository: Arc::new(EmptySessionRepository),
@@ -737,9 +782,11 @@ mod tests {
                 food_inventory_hint_provider: provider.clone(),
                 diet_confirmation_candidate_provider: provider,
                 observation_write_provider: Arc::new(EmptyObservationWriteProvider),
+                abnormal_symptom_creation_provider: Arc::new(EmptyAbnormalSymptomCreationProvider),
                 abnormal_followup_plan_provider: Arc::new(EmptyAbnormalFollowupPlanProvider),
             }),
             observation_write_provider: Arc::new(EmptyObservationWriteProvider),
+            abnormal_symptom_creation_provider: Arc::new(EmptyAbnormalSymptomCreationProvider),
             confirmation_task_repository: Arc::new(EmptyAgentConfirmationTaskRepository),
         }
     }

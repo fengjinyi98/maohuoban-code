@@ -8,7 +8,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use maohuoban_ai_application::ai::ports::{
-    AbnormalFollowupPlanDraft, AiSessionRepository, AiToolAccessLog,
+    AbnormalFollowupPlanDraft, AbnormalSymptomCreationDraft, AiSessionRepository, AiToolAccessLog,
 };
 use maohuoban_ai_application::ai::tools::{
     AiToolContext, AiToolDefinition, AiToolMetadata, AiToolResult, AiToolRiskLevel,
@@ -60,6 +60,40 @@ impl AiToolDefinition for RuntimePetContextTool {
                 },
                 "required": ["note"]
             }),
+            RuntimePetContextToolKind::PrepareAbnormalSymptomCreation => serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "occurred_at": { "type": "string", "format": "date-time" },
+                    "symptom_kinds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "appetite",
+                                "energy",
+                                "stool",
+                                "vomit",
+                                "skin",
+                                "eye",
+                                "ear",
+                                "mouth",
+                                "respiratory",
+                                "urinary",
+                                "mobility",
+                                "weight",
+                                "behavior",
+                                "other"
+                            ]
+                        }
+                    },
+                    "severity": {
+                        "type": "string",
+                        "enum": ["mild", "obvious", "severe"]
+                    },
+                    "note": { "type": "string" }
+                },
+                "required": ["occurred_at", "symptom_kinds", "severity", "note"]
+            }),
             RuntimePetContextToolKind::CommitObservationWrite => serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -84,18 +118,21 @@ impl AiToolDefinition for RuntimePetContextTool {
             read_only: !matches!(
                 self.kind,
                 RuntimePetContextToolKind::PrepareObservationWrite
+                    | RuntimePetContextToolKind::PrepareAbnormalSymptomCreation
                     | RuntimePetContextToolKind::CommitObservationWrite
                     | RuntimePetContextToolKind::SaveAbnormalFollowupPlan
             ),
             concurrency_safe: !matches!(
                 self.kind,
                 RuntimePetContextToolKind::PrepareObservationWrite
+                    | RuntimePetContextToolKind::PrepareAbnormalSymptomCreation
                     | RuntimePetContextToolKind::CommitObservationWrite
                     | RuntimePetContextToolKind::SaveAbnormalFollowupPlan
             ),
             risk_level: if matches!(
                 self.kind,
                 RuntimePetContextToolKind::PrepareObservationWrite
+                    | RuntimePetContextToolKind::PrepareAbnormalSymptomCreation
                     | RuntimePetContextToolKind::CommitObservationWrite
                     | RuntimePetContextToolKind::SaveAbnormalFollowupPlan
             ) {
@@ -106,6 +143,7 @@ impl AiToolDefinition for RuntimePetContextTool {
             requires_confirmation: matches!(
                 self.kind,
                 RuntimePetContextToolKind::PrepareObservationWrite
+                    | RuntimePetContextToolKind::PrepareAbnormalSymptomCreation
             ),
             domain_tags: vec![self.kind.domain_tag().to_owned()],
             toolset: if matches!(self.kind, RuntimePetContextToolKind::CommitObservationWrite) {
@@ -121,6 +159,11 @@ impl AiToolDefinition for RuntimePetContextTool {
     async fn execute(&self, ctx: &AiToolContext, args: &serde_json::Value) -> AiToolResult {
         if self.kind == RuntimePetContextToolKind::PrepareObservationWrite {
             return self.execute_prepare_observation_write(ctx, args).await;
+        }
+        if self.kind == RuntimePetContextToolKind::PrepareAbnormalSymptomCreation {
+            return self
+                .execute_prepare_abnormal_symptom_creation(ctx, args)
+                .await;
         }
         let result = self.execute_kind(ctx, args).await;
         match result {
@@ -320,6 +363,11 @@ impl RuntimePetContextTool {
                     "prepare observation write handled in execute_prepare_observation_write"
                 )
             }
+            RuntimePetContextToolKind::PrepareAbnormalSymptomCreation => {
+                unreachable!(
+                    "prepare abnormal symptom creation handled in execute_prepare_abnormal_symptom_creation"
+                )
+            }
             RuntimePetContextToolKind::CommitObservationWrite => {
                 let confirmation_task_id = args
                     .get("confirmation_task_id")
@@ -412,6 +460,55 @@ impl RuntimePetContextTool {
         }
     }
 
+    async fn execute_prepare_abnormal_symptom_creation(
+        &self,
+        ctx: &AiToolContext,
+        args: &serde_json::Value,
+    ) -> AiToolResult {
+        let Ok(draft) = parse_abnormal_symptom_creation_draft(args) else {
+            return AiToolResult::invalid_arguments_failure();
+        };
+        match self
+            .providers
+            .abnormal_symptom_creation_provider
+            .prepare_abnormal_symptom_creation(
+                ctx.actor_user_id,
+                self.target_pet.pet_id,
+                self.session_id,
+                draft,
+            )
+            .await
+        {
+            Ok(prepared) => {
+                let mut confirmation = prepared.confirmation;
+                confirmation.args = args.clone();
+                self.record_tool_access(
+                    ctx.actor_user_id,
+                    true,
+                    None,
+                    args,
+                    &abnormal_symptom_creation_prepare_fact_package(
+                        &confirmation.confirmation_task_id,
+                    ),
+                )
+                .await;
+                AiToolResult::requires_confirmation(confirmation)
+            }
+            Err(error) => {
+                let safe_message = error.to_string();
+                self.record_tool_access(
+                    ctx.actor_user_id,
+                    false,
+                    Some("pet.abnormal_symptom.create_prepare.failed".to_owned()),
+                    args,
+                    &AiFactPackage::empty(),
+                )
+                .await;
+                AiToolResult::failed(&safe_message)
+            }
+        }
+    }
+
     /// record_tool_access 写入工具访问审计日志
     async fn record_tool_access(
         &self,
@@ -450,6 +547,18 @@ fn observation_prepare_fact_package(confirmation_task_id: &str) -> AiFactPackage
     let mut package = AiFactPackage::empty();
     package.pending_confirmations.push(AiFactEntry {
         key: "observation.write_prepare".to_owned(),
+        value: format!("confirmation_task_id={confirmation_task_id}"),
+        strength: AiFactStrength::PendingConfirmation,
+        citation_id: None,
+    });
+    package.fact_strength = AiFactStrength::PendingConfirmation;
+    package
+}
+
+fn abnormal_symptom_creation_prepare_fact_package(confirmation_task_id: &str) -> AiFactPackage {
+    let mut package = AiFactPackage::empty();
+    package.pending_confirmations.push(AiFactEntry {
+        key: "abnormal_symptom.create_prepare".to_owned(),
         value: format!("confirmation_task_id={confirmation_task_id}"),
         strength: AiFactStrength::PendingConfirmation,
         citation_id: None,
@@ -518,6 +627,66 @@ fn parse_followup_plan_draft(args: &serde_json::Value) -> AiResult<AbnormalFollo
         time_decision: args.get("time_decision").cloned().ok_or_else(|| {
             maohuoban_ai_domain::ai::AiError::InvalidInput("缺少 time_decision".to_owned())
         })?,
+    })
+}
+
+/// parse_abnormal_symptom_creation_draft 解析异常创建工具参数
+/// 核心职责：
+/// - 将模型提交的异常候选字段转换为确认任务草稿
+/// - 只做字段结构校验，不替模型判断是否应该创建异常
+fn parse_abnormal_symptom_creation_draft(
+    args: &serde_json::Value,
+) -> AiResult<AbnormalSymptomCreationDraft> {
+    let occurred_at_raw = required_string_arg(args, "occurred_at")?;
+    let occurred_at = DateTime::parse_from_rfc3339(&occurred_at_raw)
+        .map_err(|_| {
+            maohuoban_ai_domain::ai::AiError::InvalidInput("occurred_at 格式无效".to_owned())
+        })?
+        .with_timezone(&Utc);
+    let symptom_kinds =
+        args.get("symptom_kinds")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| {
+                maohuoban_ai_domain::ai::AiError::InvalidInput(
+                    "symptom_kinds 必须是字符串数组".to_owned(),
+                )
+            })?
+            .iter()
+            .map(|value| {
+                let Some(kind) = value.as_str() else {
+                    return Err(maohuoban_ai_domain::ai::AiError::InvalidInput(
+                        "symptom_kinds 必须是字符串数组".to_owned(),
+                    ));
+                };
+                match kind {
+                    "appetite" | "energy" | "stool" | "vomit" | "skin" | "eye" | "ear"
+                    | "mouth" | "respiratory" | "urinary" | "mobility" | "weight" | "behavior"
+                    | "other" => Ok(kind.to_owned()),
+                    _ => Err(maohuoban_ai_domain::ai::AiError::InvalidInput(
+                        "symptom_kinds 包含未知类型".to_owned(),
+                    )),
+                }
+            })
+            .collect::<AiResult<Vec<_>>>()?;
+    if symptom_kinds.is_empty() {
+        return Err(maohuoban_ai_domain::ai::AiError::InvalidInput(
+            "symptom_kinds 不能为空".to_owned(),
+        ));
+    }
+    let severity = required_string_arg(args, "severity")?;
+    match severity.as_str() {
+        "mild" | "obvious" | "severe" => {}
+        _ => {
+            return Err(maohuoban_ai_domain::ai::AiError::InvalidInput(
+                "severity 格式无效".to_owned(),
+            ));
+        }
+    }
+    Ok(AbnormalSymptomCreationDraft {
+        occurred_at,
+        symptom_kinds,
+        severity,
+        note: required_string_arg(args, "note")?,
     })
 }
 

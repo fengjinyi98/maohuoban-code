@@ -303,7 +303,7 @@ async fn abnormal_followup_agent_confirmed_write_keeps_episode_context() {
     let fixture = create_abnormal_episode_fixture(&app).await;
     let (source_hint_id, agent_followup_id) = insert_due_agent_followup_hint(&app, &fixture).await;
 
-    let prepare_mock = server.mock(|when, then| {
+    let mut prepare_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
@@ -390,6 +390,7 @@ async fn abnormal_followup_agent_confirmed_write_keeps_episode_context() {
     assert_eq!(prepared_task.1, Some(source_hint_id));
     assert_eq!(prepared_task.2.as_deref(), Some("agent_proactive_followup"));
     assert_eq!(prepared_task.3, Some(agent_followup_id));
+    prepare_mock.delete();
 
     let commit_answer_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
@@ -397,7 +398,7 @@ async fn abnormal_followup_agent_confirmed_write_keeps_episode_context() {
             .header("authorization", "Bearer contract-api-key")
             .body_contains("\"stream\":true")
             .body_contains(confirmation_task_id.to_string())
-            .body_contains("后端已完成确认写入")
+            .body_contains("后端已完成用户授权的异常相关写入")
             .matches(|req| !request_body(req).contains("确认写入这次异常更新"))
             .matches(request_without_tool_result);
         then.status(200)

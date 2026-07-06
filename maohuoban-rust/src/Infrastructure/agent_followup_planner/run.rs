@@ -31,10 +31,11 @@ use uuid::Uuid;
 use super::{AgentFollowupPlannerError, AgentFollowupPlannerRunResult};
 use crate::infrastructure::ai::{
     PetServiceAbnormalEpisodeFactProvider, PetServiceAbnormalFollowupPlanProvider,
-    PetServiceAuthorizedPetCatalog, PetServiceDietConfirmationCandidateProvider,
-    PetServiceDietFactProvider, PetServiceFoodInventoryHintProvider,
-    PetServiceHealthQuickFactProvider, PetServiceIdentityFactProvider,
-    PetServiceObservationWriteProvider, build_ai_llm_provider_from_provider_config,
+    PetServiceAbnormalSymptomCreationProvider, PetServiceAuthorizedPetCatalog,
+    PetServiceDietConfirmationCandidateProvider, PetServiceDietFactProvider,
+    PetServiceFoodInventoryHintProvider, PetServiceHealthQuickFactProvider,
+    PetServiceIdentityFactProvider, PetServiceObservationWriteProvider,
+    build_ai_llm_provider_from_provider_config,
 };
 use maohuoban_ai_http::ai::router::{
     AiPetContextProviderParts, AiPetContextProviders, build_ai_runtime_tool_registry,
@@ -232,6 +233,10 @@ fn build_planner_tool_registry(
                 .providers
                 .observation_write_provider
                 .clone(),
+            abnormal_symptom_creation_provider: runtime_context
+                .providers
+                .abnormal_symptom_creation_provider
+                .clone(),
             confirmation_task_repository: confirmation_tasks,
         },
         session_id,
@@ -353,8 +358,15 @@ fn build_context_providers(pet_service: &Arc<PetService>, pool: &PgPool) -> AiPe
         ),
         observation_write_provider: Arc::new(PetServiceObservationWriteProvider::new(
             pet_service.clone(),
-            confirmation_tasks,
+            confirmation_tasks.clone(),
         )),
+        abnormal_symptom_creation_provider: Arc::new(
+            PetServiceAbnormalSymptomCreationProvider::new(
+                pet_service.clone(),
+                pool.clone(),
+                confirmation_tasks,
+            ),
+        ),
         abnormal_followup_plan_provider: Arc::new(PetServiceAbnormalFollowupPlanProvider::new(
             pet_service.clone(),
         )),

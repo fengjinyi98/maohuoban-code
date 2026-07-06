@@ -104,6 +104,18 @@ pub trait AiSessionRepository: Send + Sync {
         actor_user_id: Uuid,
     ) -> AiResult<()>;
 
+    /// bind_session_to_abnormal_episode_followup 绑定会话到异常追踪上下文
+    /// 核心职责：
+    /// - 将普通聊天内授权创建的异常接入当前会话
+    /// - 保证后续轻提醒进入同一个 Agent 上下文
+    async fn bind_session_to_abnormal_episode_followup(
+        &self,
+        session_id: Uuid,
+        actor_user_id: Uuid,
+        abnormal_episode_id: Uuid,
+        agent_followup_id: Uuid,
+    ) -> AiResult<Option<AiChatSession>>;
+
     /// mark_abnormal_episode_context_deleted 标记异常上下文已删除
     /// 核心职责：
     /// - 异常事件删除时关闭对应 session 的业务上下文

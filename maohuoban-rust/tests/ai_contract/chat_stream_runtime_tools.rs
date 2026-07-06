@@ -439,6 +439,315 @@ async fn ai_chat_stream_prepare_and_commit_observation_write() {
     assert_eq!(event_count, 1);
 }
 
+/// 普通 Agent 会话可准备异常创建确认任务
+/// 核心职责：
+/// - 验证 Agent 能把自然语言异常描述整理成待授权异常创建草稿
+/// - 确认卡只展示候选异常内容，授权前不写 `pet_events`
+#[tokio::test]
+async fn ai_chat_stream_prepares_abnormal_creation_confirmation_task() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let server = MockServer::start();
+    let app = spawn_runtime_tool_test_app(&server).await;
+    app.reset().await;
+    let access_token =
+        login_and_get_token(&app, "13800139028", "ios-ai-runtime-abnormal-create").await;
+    let pet = create_pet(&app, &access_token, "馒头").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+
+    let prepare_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("prepare_pet_abnormal_symptom_creation")
+            .body_contains("昨天精神不好");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_prepare_abnormal_creation\",\"function\":{\"name\":\"prepare_pet_abnormal_symptom_creation\",\"arguments\":\"{\\\"occurred_at\\\":\\\"2026-07-05T20:00:00+08:00\\\",\\\"symptom_kinds\\\":[\\\"energy\\\"],\\\"severity\\\":\\\"mild\\\",\\\"note\\\":\\\"昨天精神不好\\\"}\"}}]}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "馒头昨天精神不好，帮我看看需要记录吗",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send abnormal creation prepare stream request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let text = response_text(response).await;
+    prepare_mock.assert();
+
+    let confirmation_event = sse_event_data_all(&text, "confirmation_task")
+        .into_iter()
+        .next()
+        .expect("abnormal creation confirmation task event");
+    let confirmation_task_id = confirmation_event["confirmation_task_id"]
+        .as_str()
+        .expect("confirmation task id")
+        .to_owned();
+    assert_eq!(
+        confirmation_event["preview"]["title"].as_str(),
+        Some("准备创建异常追踪")
+    );
+    assert_eq!(
+        confirmation_event["preview"]["event_subkind"].as_str(),
+        Some("abnormal_symptom")
+    );
+    assert_eq!(
+        confirmation_event["preview"]["note"].as_str(),
+        Some("昨天精神不好")
+    );
+
+    let task_row: (String, serde_json::Value) = sqlx::query_as(
+        r"
+        SELECT task_kind, candidate_payload
+        FROM agent_confirmation_tasks
+        WHERE id = $1::uuid
+        ",
+    )
+    .bind(Uuid::parse_str(&confirmation_task_id).expect("parse confirmation task id"))
+    .fetch_one(app.pool())
+    .await
+    .expect("load abnormal creation confirmation task");
+    assert_eq!(task_row.0, "abnormal_symptom_creation");
+    assert_eq!(task_row.1["event_subkind"], "abnormal_symptom");
+    assert_eq!(task_row.1["symptom_kinds"], json!(["energy"]));
+    assert_eq!(task_row.1["severity"], "mild");
+    assert!(task_row.1["chat_session_id"].as_str().is_some());
+
+    let event_count: i64 = sqlx::query_scalar(
+        r"SELECT COUNT(*) FROM pet_events WHERE pet_id = $1::uuid AND event_subkind = 'abnormal_symptom'",
+    )
+    .bind(Uuid::parse_str(pet_id).expect("parse pet id"))
+    .fetch_one(app.pool())
+    .await
+    .expect("count abnormal events before approval");
+    assert_eq!(event_count, 0);
+}
+
+/// 普通 Agent 会话确认创建异常后复用同一个异常追踪上下文
+/// 核心职责：
+/// - 验证授权命令创建 `abnormal_symptom`、`abnormal_episode` 和初始 planning
+/// - 验证当前聊天 session 被绑定为该 episode 的活跃追踪会话
+#[allow(clippy::too_many_lines)]
+#[tokio::test]
+async fn ai_chat_abnormal_creation_approval_creates_episode_and_keeps_same_session_context() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let server = MockServer::start();
+    let app = spawn_runtime_tool_test_app(&server).await;
+    app.reset().await;
+    let access_token =
+        login_and_get_token(&app, "13800139029", "ios-ai-runtime-abnormal-approve").await;
+    let pet = create_pet(&app, &access_token, "馒头").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+
+    let mut prepare_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("prepare_pet_abnormal_symptom_creation")
+            .body_contains("今天早上精神不好");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_prepare_abnormal_creation\",\"function\":{\"name\":\"prepare_pet_abnormal_symptom_creation\",\"arguments\":\"{\\\"occurred_at\\\":\\\"2026-07-06T07:20:00+08:00\\\",\\\"symptom_kinds\\\":[\\\"energy\\\"],\\\"severity\\\":\\\"obvious\\\",\\\"note\\\":\\\"今天早上精神不好\\\"}\"}}]}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let prepare_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "馒头今天早上精神不好，帮我记录并追踪",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send abnormal creation prepare stream request");
+
+    assert_eq!(prepare_response.status(), StatusCode::OK);
+    let prepare_text = response_text(prepare_response).await;
+    prepare_mock.assert();
+    let confirmation_event = sse_event_data_all(&prepare_text, "confirmation_task")
+        .into_iter()
+        .next()
+        .expect("abnormal creation confirmation task event");
+    let confirmation_task_id = confirmation_event["confirmation_task_id"]
+        .as_str()
+        .expect("confirmation task id")
+        .to_owned();
+    prepare_mock.delete();
+    let initial_session_id_raw: String = sqlx::query_scalar(
+        r"
+        SELECT candidate_payload->>'chat_session_id'
+        FROM agent_confirmation_tasks
+        WHERE id = $1::uuid
+        ",
+    )
+    .bind(Uuid::parse_str(&confirmation_task_id).expect("parse confirmation task id"))
+    .fetch_one(app.pool())
+    .await
+    .expect("load prepare session id");
+    let initial_session_id = Uuid::parse_str(&initial_session_id_raw).expect("parse session id");
+
+    let answer_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("后端已完成用户授权的异常相关写入")
+            .body_contains("agent_followup_id=")
+            .body_contains("next_followup_due_at=");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"已帮你把馒头今天早上的异常记录下来，并开始主动追踪。我会按计划提醒你补充后续状态。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":18,\"total_tokens\":30}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let approve_response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            &format!("/api/v1/ai/confirmation-tasks/{confirmation_task_id}/approve/stream"),
+            &access_token,
+            json!({ "surface": "home_private" }),
+        ))
+        .await
+        .expect("approve abnormal creation confirmation task");
+
+    assert_eq!(approve_response.status(), StatusCode::OK);
+    let approve_text = response_text(approve_response).await;
+    assert!(
+        answer_mock.hits() >= 1,
+        "approval should call model with committed abnormal context, approve_text: {approve_text}"
+    );
+    assert!(
+        approve_text.contains("已帮你把馒头今天早上的异常记录下来"),
+        "approval stream should contain model response, got: {approve_text}"
+    );
+
+    let task_status: (String, Uuid) = sqlx::query_as(
+        r"
+        SELECT status, resolved_event_id
+        FROM agent_confirmation_tasks
+        WHERE id = $1::uuid
+        ",
+    )
+    .bind(Uuid::parse_str(&confirmation_task_id).expect("parse confirmation task id"))
+    .fetch_one(app.pool())
+    .await
+    .expect("load answered abnormal creation task");
+    assert_eq!(task_status.0, "answered");
+
+    let event_row: (Uuid, serde_json::Value) = sqlx::query_as(
+        r"
+        SELECT id, event_payload
+        FROM pet_events
+        WHERE pet_id = $1::uuid AND event_subkind = 'abnormal_symptom'
+        ",
+    )
+    .bind(Uuid::parse_str(pet_id).expect("parse pet id"))
+    .fetch_one(app.pool())
+    .await
+    .expect("load created abnormal symptom event");
+    assert_eq!(event_row.0, task_status.1);
+    assert_eq!(
+        event_row.1["source"].as_str(),
+        Some("agent_assisted_abnormal_creation")
+    );
+    let episode_id = event_row.1["episode_id"]
+        .as_str()
+        .and_then(|value| Uuid::parse_str(value).ok())
+        .expect("episode id");
+
+    let episode_row: (Uuid, Option<Uuid>) = sqlx::query_as(
+        r"
+        SELECT created_event_id, last_followup_plan_id
+        FROM abnormal_episodes
+        WHERE id = $1::uuid
+        ",
+    )
+    .bind(episode_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load abnormal episode");
+    assert_eq!(episode_row.0, event_row.0);
+    let followup_id = episode_row.1.expect("initial followup id");
+
+    let planning_count: i64 = sqlx::query_scalar(
+        r"
+        SELECT COUNT(*)
+        FROM agent_proactive_followups
+        WHERE id = $1::uuid AND episode_id = $2::uuid AND status = 'planning'
+        ",
+    )
+    .bind(followup_id)
+    .bind(episode_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("count planning followup");
+    assert_eq!(planning_count, 1);
+
+    let session_row: (Option<String>, Option<Uuid>, Option<Uuid>, String, String) = sqlx::query_as(
+        r"
+            SELECT chat_context_kind, abnormal_episode_id, agent_followup_id,
+                   session_visibility, context_status
+            FROM ai_chat_sessions
+            WHERE id = $1::uuid
+            ",
+    )
+    .bind(initial_session_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load bound session");
+    assert_eq!(session_row.0.as_deref(), Some("abnormal_episode_followup"));
+    assert_eq!(session_row.1, Some(episode_id));
+    assert_eq!(session_row.2, Some(followup_id));
+    assert_eq!(session_row.3, "visible");
+    assert_eq!(session_row.4, "active");
+
+    let active_session_id: Uuid = sqlx::query_scalar(
+        r"
+        SELECT id
+        FROM ai_chat_sessions
+        WHERE abnormal_episode_id = $1::uuid
+          AND context_status = 'active'
+          AND status = 'active'
+        LIMIT 1
+        ",
+    )
+    .bind(episode_id)
+    .fetch_one(app.pool())
+    .await
+    .expect("load active abnormal session");
+    assert_eq!(active_session_id, initial_session_id);
+}
+
 /// Runtime 工具进度在二次模型完成前通过 SSE 到达
 #[tokio::test]
 async fn ai_chat_stream_emits_runtime_tool_progress_before_followup_model_finishes() {

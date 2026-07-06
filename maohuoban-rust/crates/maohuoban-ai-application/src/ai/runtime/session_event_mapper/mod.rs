@@ -214,10 +214,10 @@ fn confirmation_task_preview(
         .unwrap_or("待确认记录")
         .trim()
         .to_owned();
-    let (title, event_subkind) = if tool_name == "prepare_pet_observation_write" {
-        ("准备记录一条观察", "agent_observation_note")
-    } else {
-        ("准备执行一项确认", "agent_confirmation")
+    let (title, event_subkind) = match tool_name {
+        "prepare_pet_observation_write" => ("准备记录一条观察", "agent_observation_note"),
+        "prepare_pet_abnormal_symptom_creation" => ("准备创建异常追踪", "abnormal_symptom"),
+        _ => ("准备执行一项确认", "agent_confirmation"),
     };
 
     AiConfirmationTaskPreview {

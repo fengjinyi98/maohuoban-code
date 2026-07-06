@@ -13,7 +13,7 @@ use maohuoban_ai_domain::ai::{
     AiMessageStatus, AiPetDisplaySnapshot, AiSessionTurn, AiSessionTurnStatus,
 };
 use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
-use maohuoban_pet_domain::pet::ConfirmationTaskStatus;
+use maohuoban_pet_domain::pet::{ConfirmationTaskKind, ConfirmationTaskStatus};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -71,6 +71,8 @@ pub async fn handle_approve_confirmation_task_stream(
         confirmation_task_id,
         command_context.committed_event_id,
         command_context.episode_id,
+        command_context.agent_followup_id,
+        command_context.next_followup_due_at,
         &command_context.candidate_payload,
     );
 
@@ -146,6 +148,8 @@ struct ApprovalCommandContext {
     session: AiChatSession,
     candidate_payload: serde_json::Value,
     episode_id: Uuid,
+    agent_followup_id: Uuid,
+    next_followup_due_at: Option<chrono::DateTime<Utc>>,
     committed_event_id: Uuid,
     surface: AiConversationSurface,
 }
@@ -172,6 +176,43 @@ async fn prepare_approval_command_context(
     }
 
     let candidate_payload = task.candidate_payload.clone().unwrap_or_default();
+    match task.task_kind {
+        ConfirmationTaskKind::SymptomFollowup => {
+            prepare_symptom_followup_approval_context(
+                state,
+                actor_user_id,
+                task.pet_id,
+                confirmation_task_id,
+                candidate_payload,
+                requested_surface,
+            )
+            .await
+        }
+        ConfirmationTaskKind::AbnormalSymptomCreation => {
+            prepare_abnormal_creation_approval_context(
+                state,
+                actor_user_id,
+                task.pet_id,
+                confirmation_task_id,
+                candidate_payload,
+                requested_surface,
+            )
+            .await
+        }
+        _ => Err(AiError::InvalidInput(
+            "confirmation task kind does not support approval stream".to_owned(),
+        )),
+    }
+}
+
+async fn prepare_symptom_followup_approval_context(
+    state: &AiHttpState,
+    actor_user_id: Uuid,
+    pet_id: Uuid,
+    confirmation_task_id: Uuid,
+    candidate_payload: serde_json::Value,
+    requested_surface: Option<AiConversationSurface>,
+) -> Result<ApprovalCommandContext, AiError> {
     let Some(episode_id) = candidate_payload
         .get("episode_id")
         .and_then(serde_json::Value::as_str)
@@ -189,16 +230,70 @@ async fn prepare_approval_command_context(
         .ok_or_else(|| AiError::NotFound("ai chat session".to_owned()))?;
     let committed = state
         .observation_write_provider
-        .commit_observation_write(actor_user_id, task.pet_id, confirmation_task_id)
+        .commit_observation_write(actor_user_id, pet_id, confirmation_task_id)
         .await
         .map_err(|error| AiError::Infrastructure(error.to_string()))?;
+    let agent_followup_id = session.agent_followup_id.ok_or_else(|| {
+        AiError::InvalidInput("abnormal episode session missing followup context".to_owned())
+    })?;
 
     Ok(ApprovalCommandContext {
-        pet_id: task.pet_id,
+        pet_id,
         surface: requested_surface.unwrap_or(session.surface),
         session,
         candidate_payload,
         episode_id,
+        agent_followup_id,
+        next_followup_due_at: None,
+        committed_event_id: committed.event_id,
+    })
+}
+
+async fn prepare_abnormal_creation_approval_context(
+    state: &AiHttpState,
+    actor_user_id: Uuid,
+    pet_id: Uuid,
+    confirmation_task_id: Uuid,
+    candidate_payload: serde_json::Value,
+    requested_surface: Option<AiConversationSurface>,
+) -> Result<ApprovalCommandContext, AiError> {
+    let session_id = candidate_payload
+        .get("chat_session_id")
+        .and_then(serde_json::Value::as_str)
+        .and_then(|value| Uuid::parse_str(value).ok())
+        .ok_or_else(|| {
+            AiError::InvalidInput("confirmation task missing chat session".to_owned())
+        })?;
+    let session = state
+        .session_repository
+        .get_session(session_id)
+        .await?
+        .filter(|session| session.actor_user_id == actor_user_id)
+        .ok_or_else(|| AiError::NotFound("ai chat session".to_owned()))?;
+    let committed = state
+        .abnormal_symptom_creation_provider
+        .commit_abnormal_symptom_creation(actor_user_id, pet_id, confirmation_task_id)
+        .await
+        .map_err(|error| AiError::Infrastructure(error.to_string()))?;
+    let bound_session = state
+        .session_repository
+        .bind_session_to_abnormal_episode_followup(
+            session.id,
+            actor_user_id,
+            committed.episode_id,
+            committed.agent_followup_id,
+        )
+        .await?
+        .ok_or_else(|| AiError::NotFound("ai chat session".to_owned()))?;
+
+    Ok(ApprovalCommandContext {
+        pet_id,
+        surface: requested_surface.unwrap_or(bound_session.surface),
+        session: bound_session,
+        candidate_payload,
+        episode_id: committed.episode_id,
+        agent_followup_id: committed.agent_followup_id,
+        next_followup_due_at: Some(committed.next_followup_due_at),
         committed_event_id: committed.event_id,
     })
 }
@@ -412,13 +507,19 @@ fn approval_followup_prompt(
     confirmation_task_id: Uuid,
     event_id: Uuid,
     episode_id: Uuid,
+    agent_followup_id: Uuid,
+    next_followup_due_at: Option<chrono::DateTime<Utc>>,
     candidate_payload: &serde_json::Value,
 ) -> String {
     let note = candidate_payload
         .get("note")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("用户确认写入了一条异常观察更新");
+    let plan_fact = next_followup_due_at.map_or_else(
+        || "下一次追踪计划会由后台 planning 根据本次写入后的 episode 状态继续生成。".to_owned(),
+        |due_at| format!("next_followup_due_at={};", due_at.to_rfc3339()),
+    );
     format!(
-        "后端已完成确认写入。confirmation_task_id={confirmation_task_id}; resolved_event_id={event_id}; episode_id={episode_id}; 写入内容：{note}。请基于这次写入结果，检查异常追踪上下文是否延续，并用自然语言回复用户接下来如何观察。"
+        "后端已完成用户授权的异常相关写入。confirmation_task_id={confirmation_task_id}; resolved_event_id={event_id}; episode_id={episode_id}; agent_followup_id={agent_followup_id}; {plan_fact} 写入内容：{note}。当前会话已经绑定到这个异常追踪上下文。请基于这些已完成事实自然回复用户：说明异常记录或观察更新已经完成；如果已经提供 next_followup_due_at，可以结合主动追踪计划说明你后续会在合适时间提醒用户更新宠物实际情况。不要把这段系统事实逐字复述给用户，不要声称识别图片或做出医疗诊断。"
     )
 }

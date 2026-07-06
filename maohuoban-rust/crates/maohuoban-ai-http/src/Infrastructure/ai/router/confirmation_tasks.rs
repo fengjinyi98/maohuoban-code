@@ -9,7 +9,7 @@ use axum::{
 };
 use maohuoban_ai_domain::ai::AiError;
 use maohuoban_auth_http::auth::extractor::AuthenticatedUser;
-use maohuoban_pet_domain::pet::ConfirmationTaskStatus;
+use maohuoban_pet_domain::pet::{ConfirmationTaskKind, ConfirmationTaskStatus};
 use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
@@ -58,11 +58,22 @@ pub async fn handle_approve_confirmation_task(
         ));
     }
 
-    if let Err(error) = state
-        .observation_write_provider
-        .commit_observation_write(actor_user_id, task.pet_id, confirmation_task_id)
-        .await
-    {
+    let commit_result = match task.task_kind {
+        ConfirmationTaskKind::SymptomFollowup => state
+            .observation_write_provider
+            .commit_observation_write(actor_user_id, task.pet_id, confirmation_task_id)
+            .await
+            .map(|_| ()),
+        ConfirmationTaskKind::AbnormalSymptomCreation => state
+            .abnormal_symptom_creation_provider
+            .commit_abnormal_symptom_creation(actor_user_id, task.pet_id, confirmation_task_id)
+            .await
+            .map(|_| ()),
+        _ => Err(maohuoban_pet_domain::pet::PetError::InvalidInput(
+            "确认任务类型暂不支持直接确认".to_owned(),
+        )),
+    };
+    if let Err(error) = commit_result {
         return ai_error_response(&AiError::Infrastructure(error.to_string()));
     }
 

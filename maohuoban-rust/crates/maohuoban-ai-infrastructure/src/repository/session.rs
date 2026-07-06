@@ -348,6 +348,43 @@ impl AiSessionRepository for PostgresAiSessionRepository {
         Ok(())
     }
 
+    async fn bind_session_to_abnormal_episode_followup(
+        &self,
+        session_id: Uuid,
+        actor_user_id: Uuid,
+        abnormal_episode_id: Uuid,
+        agent_followup_id: Uuid,
+    ) -> AiResult<Option<AiChatSession>> {
+        let row = sqlx::query_as::<_, SessionRow>(
+            r"
+            UPDATE ai_chat_sessions
+            SET chat_context_kind = 'abnormal_episode_followup',
+                abnormal_episode_id = $3,
+                agent_followup_id = $4,
+                session_visibility = 'visible',
+                context_status = 'active',
+                activated_at = COALESCE(activated_at, now()),
+                updated_at = now()
+            WHERE id = $1
+              AND actor_user_id = $2
+              AND status = 'active'
+            RETURNING id, actor_user_id, primary_pet_id, surface, source_hint_id,
+                   source_task_id, chat_context_kind, abnormal_episode_id,
+                   agent_followup_id, title, is_pinned, pet_display_snapshot, status,
+                   session_visibility, context_status, activated_at, created_at, updated_at
+            ",
+        )
+        .bind(session_id)
+        .bind(actor_user_id)
+        .bind(abnormal_episode_id)
+        .bind(agent_followup_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| AiError::Infrastructure(e.to_string()))?;
+
+        Ok(row.map(Into::into))
+    }
+
     async fn mark_abnormal_episode_context_deleted(
         &self,
         abnormal_episode_id: Uuid,

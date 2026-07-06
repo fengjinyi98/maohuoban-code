@@ -1,5 +1,6 @@
 mod abnormal_episode_facts;
 mod abnormal_followup_plan;
+mod abnormal_symptom_creation;
 mod diet_confirmation_candidates;
 mod diet_context;
 mod food_inventory_hints;
@@ -12,6 +13,7 @@ mod provider;
 
 pub(crate) use abnormal_episode_facts::PetServiceAbnormalEpisodeFactProvider;
 pub(crate) use abnormal_followup_plan::PetServiceAbnormalFollowupPlanProvider;
+pub(crate) use abnormal_symptom_creation::PetServiceAbnormalSymptomCreationProvider;
 pub(crate) use diet_confirmation_candidates::PetServiceDietConfirmationCandidateProvider;
 pub(crate) use diet_context::PetServiceDietFactProvider;
 pub(crate) use food_inventory_hints::PetServiceFoodInventoryHintProvider;

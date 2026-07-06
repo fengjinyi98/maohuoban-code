@@ -415,6 +415,16 @@ impl AiSessionRepository for FakeSessionRepository {
         Ok(())
     }
 
+    async fn bind_session_to_abnormal_episode_followup(
+        &self,
+        _session_id: Uuid,
+        _actor_user_id: Uuid,
+        _abnormal_episode_id: Uuid,
+        _agent_followup_id: Uuid,
+    ) -> maohuoban_ai_domain::ai::AiResult<Option<AiChatSession>> {
+        Ok(None)
+    }
+
     async fn mark_abnormal_episode_context_deleted(
         &self,
         _abnormal_episode_id: Uuid,
