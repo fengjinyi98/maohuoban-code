@@ -67,7 +67,11 @@ impl PetAbnormalSymptomCreationProvider for PetServiceAbnormalSymptomCreationPro
             id: confirmation_task_id,
             pet_id,
             task_kind: ConfirmationTaskKind::AbnormalSymptomCreation,
-            question_text: "是否确认创建这条异常追踪？".to_owned(),
+            question_text: draft
+                .confirmation_question_text
+                .clone()
+                .filter(|text| !text.trim().is_empty())
+                .unwrap_or_else(|| "是否确认创建这条异常追踪？".to_owned()),
             candidate_payload: Some(candidate_payload),
             source_hint_id: None,
             source_ref_type: Some("agent_runtime".to_owned()),

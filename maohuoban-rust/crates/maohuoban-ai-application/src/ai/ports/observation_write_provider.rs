@@ -40,6 +40,7 @@ pub trait PetObservationWriteProvider: Send + Sync {
         actor_user_id: Uuid,
         pet_id: Uuid,
         note: String,
+        confirmation_question_text: Option<String>,
         context: ObservationWriteContext,
     ) -> PetResult<PreparedObservationWrite>;
 

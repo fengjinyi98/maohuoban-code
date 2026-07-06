@@ -439,12 +439,12 @@ async fn ai_chat_stream_prepare_and_commit_observation_write() {
     assert_eq!(event_count, 1);
 }
 
-/// 准备写入确认任务时不应先流出模型自由文本
+/// 准备写入确认任务时模型说明应进入授权卡
 /// 核心职责：
-/// - 锁定同一轮模型先输出文本再调用确认工具的边界
-/// - 确认用户可见结果以授权卡为准，避免写入前自由文本先进入前端
+/// - 锁定确认类工具调用直接承载写入前说明
+/// - 避免依赖 Runtime/SSE 缓冲并丢弃模型自由文本
 #[tokio::test]
-async fn ai_chat_stream_suppresses_model_delta_before_confirmation_task() {
+async fn ai_chat_stream_confirmation_task_uses_tool_provided_explanation() {
     let _guard = diagnostics_test_lock().lock_owned().await;
     let server = MockServer::start();
     let app = spawn_runtime_tool_test_app(&server).await;
@@ -464,8 +464,7 @@ async fn ai_chat_stream_suppresses_model_delta_before_confirmation_task() {
         then.status(200)
             .header("content-type", "text/event-stream")
             .body(
-                "data: {\"choices\":[{\"delta\":{\"content\":\"我先帮你分析一下，再准备记录。\"}}]}\n\n\
-                 data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_prepare\",\"function\":{\"name\":\"prepare_pet_observation_write\",\"arguments\":\"{\\\"note\\\":\\\"馒头今早呕吐，呕吐物为褐色分泌物。精神正常，食欲正常。\\\"}\"}}]}}]}\n\n\
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_prepare\",\"function\":{\"name\":\"prepare_pet_observation_write\",\"arguments\":\"{\\\"note\\\":\\\"馒头今早呕吐，呕吐物为褐色分泌物。精神正常，食欲正常。\\\",\\\"confirmation_question_text\\\":\\\"我会把这条观察记录为呕吐相关异常线索。写入前请确认：呕吐物为褐色分泌物，精神和食欲暂时正常。\\\"}\"}}]}}]}\n\n\
                  data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
                  data: [DONE]\n\n",
             );
@@ -493,15 +492,84 @@ async fn ai_chat_stream_suppresses_model_delta_before_confirmation_task() {
 
     assert!(
         !text.contains("event: answer_delta"),
-        "confirmation prepare stream should not emit model text before authorization card, got: {text}"
+        "confirmation prepare stream should render authorization card instead of answer delta, got: {text}"
     );
     let confirmation_event = sse_event_data_all(&text, "confirmation_task")
         .into_iter()
         .next()
         .expect("confirmation task event");
     assert_eq!(
+        confirmation_event["question_text"].as_str(),
+        Some(
+            "我会把这条观察记录为呕吐相关异常线索。写入前请确认：呕吐物为褐色分泌物，精神和食欲暂时正常。"
+        )
+    );
+    assert_eq!(
         confirmation_event["preview"]["note"].as_str(),
         Some("馒头今早呕吐，呕吐物为褐色分泌物。精神正常，食欲正常。")
+    );
+}
+
+/// 普通模型回复应保持流式增量输出
+/// 核心职责：
+/// - 锁定非确认工具场景下 `answer_delta` 不被 Runtime 缓冲到结束
+/// - 避免确认卡修复破坏普通会话流式体验
+#[tokio::test]
+async fn ai_chat_stream_emits_plain_model_delta_before_completion() {
+    let _guard = diagnostics_test_lock().lock_owned().await;
+    let server = MockServer::start();
+    let app = spawn_runtime_tool_test_app(&server).await;
+    app.reset().await;
+    let access_token = login_and_get_token(&app, "13800139031", "ios-ai-runtime-plain-delta").await;
+    let pet = create_pet(&app, &access_token, "馒头").await;
+    let pet_id = pet["id"].as_str().expect("pet id");
+
+    let plain_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .body_contains("\"stream\":true")
+            .body_contains("今天精神怎么样");
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"馒头今天精神不错，可以继续观察。\"}}]}\n\n\
+                 data: {\"choices\":[{\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":8,\"total_tokens\":16}}\n\n\
+                 data: [DONE]\n\n",
+            );
+    });
+
+    let response = app
+        .router()
+        .clone()
+        .oneshot(authorized_json_request(
+            "POST",
+            "/api/v1/ai/chat/stream",
+            &access_token,
+            json!({
+                "message": "馒头今天精神怎么样",
+                "surface": "home_private",
+                "selected_pet_id": pet_id
+            }),
+        ))
+        .await
+        .expect("send plain model stream request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let text = response_text(response).await;
+    plain_mock.assert();
+
+    let delta_event = sse_event_data_all(&text, "answer_delta")
+        .into_iter()
+        .next()
+        .expect("answer delta event");
+    assert_eq!(
+        delta_event["text"].as_str(),
+        Some("馒头今天精神不错，可以继续观察。")
+    );
+    assert!(
+        text.contains("event: answer_completed"),
+        "plain stream should still complete, got: {text}"
     );
 }
 
@@ -530,7 +598,7 @@ async fn ai_chat_stream_prepares_abnormal_creation_confirmation_task() {
         then.status(200)
             .header("content-type", "text/event-stream")
             .body(
-                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_prepare_abnormal_creation\",\"function\":{\"name\":\"prepare_pet_abnormal_symptom_creation\",\"arguments\":\"{\\\"occurred_at\\\":\\\"2026-07-05T20:00:00+08:00\\\",\\\"symptom_kinds\\\":[\\\"energy\\\"],\\\"severity\\\":\\\"mild\\\",\\\"note\\\":\\\"昨天精神不好\\\"}\"}}]}}]}\n\n\
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_prepare_abnormal_creation\",\"function\":{\"name\":\"prepare_pet_abnormal_symptom_creation\",\"arguments\":\"{\\\"occurred_at\\\":\\\"2026-07-05T20:00:00+08:00\\\",\\\"symptom_kinds\\\":[\\\"energy\\\"],\\\"severity\\\":\\\"mild\\\",\\\"note\\\":\\\"昨天精神不好\\\",\\\"confirmation_question_text\\\":\\\"我会把昨天精神不好的情况创建为异常追踪。写入前请确认这条记录。\\\"}\"}}]}}]}\n\n\
                  data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n\
                  data: [DONE]\n\n",
             );
@@ -564,6 +632,10 @@ async fn ai_chat_stream_prepares_abnormal_creation_confirmation_task() {
         .as_str()
         .expect("confirmation task id")
         .to_owned();
+    assert_eq!(
+        confirmation_event["question_text"].as_str(),
+        Some("我会把昨天精神不好的情况创建为异常追踪。写入前请确认这条记录。")
+    );
     assert_eq!(
         confirmation_event["preview"]["title"].as_str(),
         Some("准备创建异常追踪")

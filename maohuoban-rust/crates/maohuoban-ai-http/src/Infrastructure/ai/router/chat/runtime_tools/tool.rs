@@ -56,7 +56,11 @@ impl AiToolDefinition for RuntimePetContextTool {
             RuntimePetContextToolKind::PrepareObservationWrite => serde_json::json!({
                 "type": "object",
                 "properties": {
-                    "note": { "type": "string" }
+                    "note": { "type": "string" },
+                    "confirmation_question_text": {
+                        "type": "string",
+                        "description": "用户授权卡上的说明文案。需要写入观察时，把写入前要对用户说明的内容放在这里，不要先用普通文本输出。"
+                    }
                 },
                 "required": ["note"]
             }),
@@ -90,7 +94,11 @@ impl AiToolDefinition for RuntimePetContextTool {
                         "type": "string",
                         "enum": ["mild", "obvious", "severe"]
                     },
-                    "note": { "type": "string" }
+                    "note": { "type": "string" },
+                    "confirmation_question_text": {
+                        "type": "string",
+                        "description": "用户授权卡上的说明文案。需要创建异常追踪时，把写入前要对用户说明的内容放在这里，不要先用普通文本输出。"
+                    }
                 },
                 "required": ["occurred_at", "symptom_kinds", "severity", "note"]
             }),
@@ -428,6 +436,7 @@ impl RuntimePetContextTool {
                 ctx.actor_user_id,
                 self.target_pet.pet_id,
                 note.to_owned(),
+                optional_string_arg(args, "confirmation_question_text"),
                 ctx.observation_write_context.clone(),
             )
             .await
@@ -687,6 +696,7 @@ fn parse_abnormal_symptom_creation_draft(
         symptom_kinds,
         severity,
         note: required_string_arg(args, "note")?,
+        confirmation_question_text: optional_string_arg(args, "confirmation_question_text"),
     })
 }
 
@@ -723,6 +733,18 @@ fn required_string_arg(args: &serde_json::Value, key: &str) -> AiResult<String> 
         )));
     }
     Ok(value.to_owned())
+}
+
+/// optional_string_arg 解析可选字符串工具参数
+/// 核心职责：
+/// - 让模型把用户可见授权说明随确认工具一起提交
+/// - 保持缺省参数不影响既有确认任务合同
+fn optional_string_arg(args: &serde_json::Value, key: &str) -> Option<String> {
+    args.get(key)
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
 }
 
 /// optional_uuid_arg 解析可选 UUID 工具参数

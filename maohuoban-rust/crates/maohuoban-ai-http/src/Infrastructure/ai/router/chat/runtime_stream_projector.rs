@@ -25,7 +25,6 @@ pub(super) struct AgentEventSseProjector {
     pending_delta_text: String,
     streamed_delta_text: String,
     suppress_model_delta: bool,
-    hold_model_delta_until_finish: bool,
     identity_context_tool_required: bool,
     identity_context_tool_succeeded: bool,
     visible_output_plan: VisibleOutputPlan,
@@ -49,7 +48,6 @@ impl AgentEventSseProjector {
             pending_delta_text: String::new(),
             streamed_delta_text: String::new(),
             suppress_model_delta: false,
-            hold_model_delta_until_finish: true,
             identity_context_tool_required,
             identity_context_tool_succeeded: false,
             visible_output_plan,
@@ -141,11 +139,8 @@ impl AgentEventSseProjector {
                 retryable,
                 ..
             } => Self::project_error(turn_id, error_code, retryable),
-            AgentEvent::ModelCallStarted { .. } => {
-                self.hold_model_delta_until_finish = true;
-                Vec::new()
-            }
-            AgentEvent::TurnStarted { .. }
+            AgentEvent::ModelCallStarted { .. }
+            | AgentEvent::TurnStarted { .. }
             | AgentEvent::PolicyChecked { .. }
             | AgentEvent::ToolStarted { .. }
             | AgentEvent::NeedsClarification { .. } => Vec::new(),
@@ -317,9 +312,6 @@ impl AgentEventSseProjector {
         text: &str,
     ) -> Vec<UserVisibleTurnEvent> {
         self.pending_delta_text.push_str(text);
-        if self.hold_model_delta_until_finish {
-            return Vec::new();
-        }
         self.flush_pending_message_delta(turn_id)
     }
 
@@ -331,10 +323,8 @@ impl AgentEventSseProjector {
         if finish_reason == LlmFinishReason::ToolCalls {
             self.pending_delta_text.clear();
             self.suppress_model_delta = false;
-            self.hold_model_delta_until_finish = true;
             return Vec::new();
         }
-        self.hold_model_delta_until_finish = false;
         self.flush_pending_message_delta(turn_id)
     }
 

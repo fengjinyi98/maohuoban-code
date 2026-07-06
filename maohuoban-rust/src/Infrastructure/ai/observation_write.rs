@@ -44,6 +44,7 @@ impl PetObservationWriteProvider for PetServiceObservationWriteProvider {
         actor_user_id: Uuid,
         pet_id: Uuid,
         note: String,
+        confirmation_question_text: Option<String>,
         context: ObservationWriteContext,
     ) -> PetResult<PreparedObservationWrite> {
         let confirmation_task_id = Uuid::new_v4();
@@ -81,7 +82,9 @@ impl PetObservationWriteProvider for PetServiceObservationWriteProvider {
             id: confirmation_task_id,
             pet_id,
             task_kind: ConfirmationTaskKind::SymptomFollowup,
-            question_text: "是否确认写入这条观察记录？".to_owned(),
+            question_text: confirmation_question_text
+                .filter(|text| !text.trim().is_empty())
+                .unwrap_or_else(|| "是否确认写入这条观察记录？".to_owned()),
             candidate_payload: Some(candidate_payload),
             source_hint_id: context.source_hint_id,
             source_ref_type: Some(if is_abnormal_followup {

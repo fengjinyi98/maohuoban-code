@@ -10,4 +10,5 @@ pub struct AbnormalSymptomCreationDraft {
     pub symptom_kinds: Vec<String>,
     pub severity: String,
     pub note: String,
+    pub confirmation_question_text: Option<String>,
 }

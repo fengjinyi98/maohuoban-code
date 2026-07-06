@@ -396,6 +396,7 @@ mod tests {
             _actor_user_id: Uuid,
             _pet_id: Uuid,
             _note: String,
+            _confirmation_question_text: Option<String>,
             _context: ObservationWriteContext,
         ) -> PetResult<PreparedObservationWrite> {
             let confirmation_task_id = Uuid::new_v4();

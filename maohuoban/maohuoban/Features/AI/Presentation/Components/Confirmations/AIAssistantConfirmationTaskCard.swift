@@ -15,6 +15,11 @@ struct AIAssistantConfirmationTaskCard: View {
         VStack(alignment: .leading, spacing: 10) {
             AIAssistantConfirmationTaskCardHeader(title: task.preview.title)
 
+            Text(task.questionText)
+                .font(MHBTheme.Typography.callout)
+                .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
+                .fixedSize(horizontal: false, vertical: true)
+
             AIAssistantConfirmationTaskPreviewBlock(
                 note: task.preview.note,
                 sourceLabel: task.preview.sourceLabel
