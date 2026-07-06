@@ -33,14 +33,32 @@ async fn planner_run_once_saves_dynamic_plan_for_pending_abnormal_followup() {
     let (_pet_id, episode_id, followup_id) =
         create_abnormal_event_and_load_plan(&app, &access_token).await;
 
-    let planned_due_at = "2026-07-05T08:40:00Z";
-    let episode_mock = server.mock(|when, then| {
+    let planned_due_at = "2026-07-05T00:30:00Z";
+    let identity_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
             .header("authorization", "Bearer contract-api-key")
             .body_contains("异常主动追踪 planning")
+            .body_contains("信息断层")
+            .body_contains("load_pet_identity_context")
+            .matches(request_without_tool_result)
+            .matches(|req| !request_body(req).contains("\"episode_id\":\""))
+            .matches(|req| !request_body(req).contains("\"agent_followup_id\":\""));
+        then.status(200)
+            .header("content-type", "text/event-stream")
+            .body(tool_call_sse(
+                "call_identity",
+                "load_pet_identity_context",
+                "{}",
+            ));
+    });
+    let episode_mock = server.mock(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/v1/chat/completions")
+            .header("authorization", "Bearer contract-api-key")
+            .matches(request_has_tool_result_call_identity)
+            .body_contains("来到世界")
             .body_contains("load_pet_abnormal_episode_facts")
-            .matches(|req| !request_body(req).contains("\"role\":\"tool\""))
             .matches(|req| !request_body(req).contains("\"episode_id\":\""))
             .matches(|req| !request_body(req).contains("\"agent_followup_id\":\""));
         then.status(200)
@@ -54,8 +72,7 @@ async fn planner_run_once_saves_dynamic_plan_for_pending_abnormal_followup() {
     let quick_facts_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
-            .body_contains("\"role\":\"tool\"")
-            .body_contains("\"tool_call_id\":\"call_episode\"")
+            .matches(request_has_tool_result_call_episode)
             .body_contains("load_pet_recent_health_facts")
             .matches(|req| !request_body(req).contains("\"tool_call_id\":\"call_quick\""));
         then.status(200)
@@ -69,7 +86,7 @@ async fn planner_run_once_saves_dynamic_plan_for_pending_abnormal_followup() {
     let diet_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
-            .body_contains("\"tool_call_id\":\"call_quick\"")
+            .matches(request_has_tool_result_call_quick)
             .body_contains("load_pet_current_diet_context")
             .matches(|req| !request_body(req).contains("\"tool_call_id\":\"call_diet\""));
         then.status(200)
@@ -80,25 +97,10 @@ async fn planner_run_once_saves_dynamic_plan_for_pending_abnormal_followup() {
                 "{}",
             ));
     });
-    let inventory_mock = server.mock(|when, then| {
-        when.method(httpmock::Method::POST)
-            .path("/v1/chat/completions")
-            .body_contains("\"tool_call_id\":\"call_diet\"")
-            .body_contains("load_food_inventory_change_hints")
-            .matches(|req| !request_body(req).contains("\"tool_call_id\":\"call_inventory\""));
-        then.status(200)
-            .header("content-type", "text/event-stream")
-            .body(tool_call_sse(
-                "call_inventory",
-                "load_food_inventory_change_hints",
-                "{}",
-            ));
-    });
     let save_mock = server.mock(|when, then| {
         when.method(httpmock::Method::POST)
             .path("/v1/chat/completions")
-            .body_contains("\"tool_call_id\":\"call_inventory\"")
-            .body_contains("save_abnormal_episode_followup_plan")
+            .matches(request_has_tool_result_call_diet)
             .matches(|req| !request_body(req).contains("\"tool_call_id\":\"call_save_plan\""))
             .matches(|req| !request_body(req).contains("\"episode_id\":\""))
             .matches(|req| !request_body(req).contains("\"agent_followup_id\":\""));
@@ -120,10 +122,10 @@ async fn planner_run_once_saves_dynamic_plan_for_pending_abnormal_followup() {
     .await
     .expect("run agent followup planner once");
 
+    identity_mock.assert();
     episode_mock.assert();
     quick_facts_mock.assert();
     diet_mock.assert();
-    inventory_mock.assert();
     save_mock.assert();
     assert_eq!(result.planned_count, 1);
 
@@ -160,12 +162,28 @@ async fn planner_run_once_saves_dynamic_plan_for_pending_abnormal_followup() {
         saved_plan.3,
         "团团早上有水样便，晚点请确认便便、精神和食欲是否好转。"
     );
-    assert_eq!(saved_plan.4, "明显腹泻需尽快首次追踪，但模型选择晚些复查。");
+    assert_eq!(saved_plan.4, "明显腹泻已有信息断层，模型选择现在附近追问。");
     assert_eq!(
         saved_plan.5,
         json!(["update_observation", "chat_with_agent"])
     );
     assert_eq!(saved_plan.6["urgency_window"], "short_delay");
+    assert_eq!(saved_plan.6["attention_timing"], "now_or_soon");
+    assert_eq!(
+        saved_plan.6["staleness_assessment"]["basis"],
+        "now_at - max(occurred_at,last_observed_at)"
+    );
+    assert_eq!(
+        saved_plan.6["staleness_assessment"]["staleness_minutes"],
+        10
+    );
+    assert_eq!(saved_plan.6["occurred_at"], "2026-07-05T00:10:00Z");
+    assert_eq!(saved_plan.6["last_observed_at"], serde_json::Value::Null);
+    assert_eq!(
+        saved_plan.6["identity_context"]["world_days"],
+        serde_json::json!(154)
+    );
+    assert_eq!(saved_plan.6["identity_context"]["species"], "cat");
     let source_turn_id = saved_plan
         .7
         .expect("dynamic plan must keep source runtime turn id for audit");
@@ -222,6 +240,14 @@ async fn planner_run_once_saves_dynamic_plan_for_pending_abnormal_followup() {
     assert_eq!(
         save_tool_audit.0["time_decision"]["urgency_window"],
         "short_delay"
+    );
+    assert_eq!(
+        save_tool_audit.0["time_decision"]["attention_timing"],
+        "now_or_soon"
+    );
+    assert_eq!(
+        save_tool_audit.0["time_decision"]["staleness_assessment"]["staleness_minutes"],
+        10
     );
     assert_eq!(save_tool_audit.0["time_decision"]["time_tool_used"], true);
     assert_eq!(save_tool_audit.1["fact_count"], 1);
@@ -311,6 +337,53 @@ fn request_body(req: &HttpMockRequest) -> String {
     String::from_utf8_lossy(req.body.as_deref().unwrap_or_default()).into_owned()
 }
 
+fn request_without_tool_result(req: &HttpMockRequest) -> bool {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&request_body(req)) else {
+        return false;
+    };
+    !value["messages"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .any(|message| message["role"].as_str() == Some("tool"))
+}
+
+fn request_has_tool_result_call_identity(req: &HttpMockRequest) -> bool {
+    request_has_tool_result(req, "call_identity")
+}
+
+fn request_has_tool_result_call_episode(req: &HttpMockRequest) -> bool {
+    request_has_tool_result(req, "call_episode")
+}
+
+fn request_has_tool_result_call_quick(req: &HttpMockRequest) -> bool {
+    request_has_tool_result(req, "call_quick")
+}
+
+fn request_has_tool_result_call_diet(req: &HttpMockRequest) -> bool {
+    request_has_tool_result(req, "call_diet")
+}
+
+fn request_has_tool_result(req: &HttpMockRequest, tool_call_id: &str) -> bool {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&request_body(req)) else {
+        return false;
+    };
+    value["messages"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .any(|message| {
+            message["role"].as_str() == Some("tool") && tool_message_matches(message, tool_call_id)
+        })
+}
+
+fn tool_message_matches(message: &serde_json::Value, tool_call_id: &str) -> bool {
+    message["tool_call_id"].as_str() == Some(tool_call_id)
+        || message["content"]
+            .as_str()
+            .is_some_and(|content| content.contains(tool_call_id))
+}
+
 fn tool_call_sse(call_id: &str, tool_name: &str, arguments: &str) -> String {
     format!(
         "data: {{\"choices\":[{{\"delta\":{{\"tool_calls\":[{{\"id\":\"{call_id}\",\"function\":{{\"name\":\"{tool_name}\",\"arguments\":\"{}\"}}}}]}}}}]}}\n\n\
@@ -324,9 +397,9 @@ fn save_plan_sse(planned_due_at: &str) -> String {
     "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"id\":\"call_save_plan\",\"function\":{\"name\":\"save_abnormal_episode_followup_plan\",\"arguments\":\"{\\\"due_at\\\":\\\""
         .to_owned()
         + planned_due_at
-        + "\\\",\\\"message_title\\\":\\\"毛球想晚点确认\\\",\\\"message_body\\\":\\\"团团早上有水样便，晚点请确认便便、精神和食欲是否好转。\\\",\\\"rationale\\\":\\\"明显腹泻需尽快首次追踪，但模型选择晚些复查。\\\",\\\"time_decision\\\":{\\\"now_at\\\":\\\"2026-07-05T00:20:00Z\\\",\\\"episode_started_at\\\":\\\"2026-07-05T00:10:00Z\\\",\\\"elapsed_minutes\\\":10,\\\"selected_due_at\\\":\\\""
+        + "\\\",\\\"message_title\\\":\\\"毛球想晚点确认\\\",\\\"message_body\\\":\\\"团团早上有水样便，晚点请确认便便、精神和食欲是否好转。\\\",\\\"rationale\\\":\\\"明显腹泻已有信息断层，模型选择现在附近追问。\\\",\\\"time_decision\\\":{\\\"now_at\\\":\\\"2026-07-05T00:20:00Z\\\",\\\"occurred_at\\\":\\\"2026-07-05T00:10:00Z\\\",\\\"episode_started_at\\\":\\\"2026-07-05T00:10:00Z\\\",\\\"last_observed_at\\\":null,\\\"elapsed_minutes\\\":10,\\\"attention_timing\\\":\\\"now_or_soon\\\",\\\"staleness_assessment\\\":{\\\"basis\\\":\\\"now_at - max(occurred_at,last_observed_at)\\\",\\\"staleness_minutes\\\":10,\\\"reason\\\":\\\"异常发生后尚无追加观察\\\"},\\\"identity_context\\\":{\\\"species\\\":\\\"cat\\\",\\\"birthday\\\":\\\"2025-02-01\\\",\\\"world_days\\\":154},\\\"selected_due_at\\\":\\\""
         + planned_due_at
-        + "\\\",\\\"delay_minutes\\\":500,\\\"urgency_window\\\":\\\"short_delay\\\",\\\"reason\\\":\\\"明显腹泻需要短延迟复查\\\",\\\"time_tool_used\\\":true},\\\"recommended_actions\\\":[\\\"update_observation\\\",\\\"chat_with_agent\\\"]}\"}}]}}]}\n\n\
+        + "\\\",\\\"delay_minutes\\\":10,\\\"urgency_window\\\":\\\"short_delay\\\",\\\"reason\\\":\\\"明显腹泻需要短延迟复查\\\",\\\"time_tool_used\\\":true},\\\"recommended_actions\\\":[\\\"update_observation\\\",\\\"chat_with_agent\\\"]}\"}}]}}]}\n\n\
            data: {\"choices\":[{\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":4,\"total_tokens\":16}}\n\n\
            data: [DONE]\n\n"
 }

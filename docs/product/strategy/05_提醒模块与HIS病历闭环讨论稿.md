@@ -469,8 +469,9 @@ App 病历详情应展示“医院发布版健康档案”，而不是用户手�
 | Agent 参与方式 | Agent 负责理解异常、生成追踪策略、组织追问文案和判断下一步追踪方向。 |
 | Tool 参与方式 | Tool 负责受控读取事实、提交经校验/确认的写入意图，不承载隐藏业务策略。 |
 | 调度方式 | 调度器只按 `agent_proactive_followups.due_at` 执行到期投影，生成站内 `attention_hints`。 |
-| 时间决策边界 | 二次追问时间由模型在 planning 中自主决定；代码只提供异常创建后的 planner fallback touchpoint 和到期执行，不按规则覆盖模型 `due_at`。 |
-| 决策审计 | 模型保存计划时必须提交 `time_decision`，系统保存到 `agent_proactive_followups.planning_decision` 和 `ai_tool_access_logs.request_payload`，用于解释模型为什么选择该追问时间。 |
+| 时间决策边界 | 二次追问时间由模型在 planning 中自主决定；模型必须先评估异常信息断层，再决定 `due_at` 是现在/几分钟内、稍后追问或暂不打扰。代码只提供异常创建后的 planner fallback touchpoint、字段自洽校验和到期执行，不按规则覆盖模型 `due_at`。 |
+| 信息断层口径 | planning 以异常真实发生时间 `occurred_at` 和最近一次已确认追加观察 `last_observed_at` 为主，按 `now_at - max(occurred_at,last_observed_at)` 理解当前缺少多久的新状态；`created_at` 只表示系统何时知道这件事。 |
+| 决策审计 | 模型保存计划时必须提交 `time_decision`，系统保存到 `agent_proactive_followups.planning_decision` 和 `ai_tool_access_logs.request_payload`；字段必须包含 `attention_timing/staleness_assessment/identity_context/selected_due_at/delay_minutes/reason`，用于解释模型为什么选择该追问时间。 |
 | 首页交互 | 轻提醒展示 `更新情况`、`问问毛球` 两个文字按钮，通过 payload actions 驱动路由。 |
 | 事实账本 | Agent 追问本身不进入病情事实；用户确认后的追加观察才写入 `pet_events.health/symptom_followup`。 |
 
@@ -492,13 +493,13 @@ App 病历详情应展示“医院发布版健康档案”，而不是用户手�
 | 同 Agent 上下文复用 | 已具备 | 验收口径同时校验同一 `ai_chat_sessions.id`、session 持久化字段 `chat_context_kind=abnormal_episode_followup`、同一 `abnormal_episode_id`、最新 `source_hint_id/agent_followup_id`、Runtime `AiToolContext.observation_write_context`、写入工具上下文和 provider workflow 注入；合同测试 `abnormal_followup_second_turn_restores_agent_context_from_session` 验证第二轮只带 `chat_session_id` 时，后端仍从 session 恢复当前 episode/followup 上下文 |
 | 会话列表上下文下发 | 已具备 | `GET /api/v1/ai/chat-sessions` 返回 `chat_context_kind/abnormal_episode_id/source_hint_id/agent_followup_id`，前端可按 episode 定位同一 Agent 追踪会话；合同测试 `ai_chat_sessions_returns_abnormal_episode_context` 已通过 |
 | iOS 异常入口会话恢复 | 已具备 | `AIAssistantStore.restoreAbnormalEpisodeConversationIfNeeded()` 在 abnormal episode 入口从历史列表匹配同 episode session 并加载消息，并把发送请求使用的 effective context 刷新为历史 session 下发的最新 `source_hint_id/agent_followup_id`；测试 `testAbnormalEpisodeEntryRestoresExistingSessionAndMessages`、`testAbnormalEpisodeRestoredSessionSendsLatestAgentContext` 已通过 |
-| Agent workflow skill 动态 planning 入口 | 已具备 | 新增 `TaskType::AbnormalEpisodeFollowupPlanning`、`workflow.abnormal_episode_proactive_followup_planning`，Runtime 从恢复后的 `ObservationWriteContext` 派生该 task type；skill 要求模型输出 `time_decision` 说明 `now_at/episode_started_at/elapsed_minutes/selected_due_at/delay_minutes/urgency_window/reason/time_tool_used`，并要求弱线索只能作为待确认询问方向；合同测试 `abnormal_episode_followup_planning_comes_from_runtime_context_not_user_text`、`builtin_runtime_matches_abnormal_episode_proactive_followup_planning_skill` 已通过 |
+| Agent workflow skill 动态 planning 入口 | 已具备 | 新增 `TaskType::AbnormalEpisodeFollowupPlanning`、`workflow.abnormal_episode_proactive_followup_planning`，Runtime 从恢复后的 `ObservationWriteContext` 派生该 task type；skill 要求模型先读取宠物身份档案、异常 episode、近期便便/精神/食欲、饮食和储物柜线索，再评估信息断层并输出 `time_decision`；`time_decision` 必须说明 `now_at/occurred_at/episode_started_at/last_observed_at/elapsed_minutes/attention_timing/staleness_assessment/identity_context/selected_due_at/delay_minutes/urgency_window/reason/time_tool_used`，并要求弱线索只能作为待确认询问方向；合同测试 `abnormal_episode_followup_planning_comes_from_runtime_context_not_user_text`、`builtin_runtime_matches_abnormal_episode_proactive_followup_planning_skill` 已通过 |
 | Agent planning 上下文不丢 | 已具备 | 同一 abnormal episode 第二轮只带 `chat_session_id` 时，后端从 session 恢复异常追踪上下文并向 provider 请求注入“异常主动追踪 planning”workflow 指令；合同测试 `abnormal_followup_second_turn_restores_agent_context_from_session` 已加断言覆盖 |
-| Agent planning 保存 tool | 已具备 | 新增 Runtime tool `save_abnormal_episode_followup_plan`，模型提交 `due_at/message_title/message_body/rationale/time_decision/recommended_actions`；`episode_id/agent_followup_id` 只能从后端恢复的 `ObservationWriteContext` 获取；tool schema 支持 `update_observation/chat_with_agent/mark_recovered/book_clinic`；合同测试 `abnormal_followup_agent_can_save_planned_followup_from_session_context`、`abnormal_followup_plan_can_save_branch_actions_from_session_context`、`planner_run_once_saves_dynamic_plan_for_pending_abnormal_followup` 已通过 |
-| Agent planning 保存 service | 已具备 | `AbnormalFollowupPlanProvider` 调用 `PetService::save_agent_followup_plan`，application service 校验授权、文案长度和推荐动作，repository 更新 `agent_proactive_followups.status=scheduled`、保存 `planning_decision` 并回写 `abnormal_episodes.next_followup_due_at/last_followup_plan_id` |
+| Agent planning 保存 tool | 已具备 | 新增 Runtime tool `save_abnormal_episode_followup_plan`，模型提交 `due_at/message_title/message_body/rationale/time_decision/recommended_actions`；`episode_id/agent_followup_id` 只能从后端恢复的 `ObservationWriteContext` 获取；tool schema 支持 `attention_timing=now_or_soon/scheduled_later/monitor_without_prompt`、`staleness_assessment` 和 `identity_context` 审计字段，动作支持 `update_observation/chat_with_agent/mark_recovered/book_clinic`；合同测试 `abnormal_followup_agent_can_save_planned_followup_from_session_context`、`abnormal_followup_plan_can_save_branch_actions_from_session_context`、`planner_run_once_saves_dynamic_plan_for_pending_abnormal_followup` 已通过 |
+| Agent planning 保存 service | 已具备 | `AbnormalFollowupPlanProvider` 调用 `PetService::save_agent_followup_plan`，application service 校验授权、文案长度、推荐动作、提醒正文日期一致性，以及 `selected_due_at/delay_minutes/staleness_minutes/attention_timing/identity_context` 的模型输出自洽性；repository 更新 `agent_proactive_followups.status=scheduled`、保存 `planning_decision` 并回写 `abnormal_episodes.next_followup_due_at/last_followup_plan_id` |
 | Agent planning 工具审计 | 已具备 | `ai_tool_access_logs` 记录 `request_payload/response_payload`，可从数据库还原模型提交的 `due_at/message/rationale/time_decision/actions` 和工具返回事实摘要；系统不基于这些字段生成规则化诊断标签，也不改写模型计划 |
 | 受控后台写入策略 | 已具备 | `PolicyGuard` 对 `save_abnormal_episode_followup_plan` 做精确放行，保持一般写工具仍需确认；合同测试 `policy_guard_allows_abnormal_followup_plan_tool_without_confirmation` 已通过 |
-| 后台自动模型 planning job | 已具备 | 新增 `agent_followup_planner` 后台任务；异常创建/追加先写 `agent_proactive_followups.status=planning`，planner 领取后复用现有 Agent Runtime、workflow skill、tool registry 和 `ObservationWriteContext`，模型按异常事实、quick facts、饮食和储物柜线索调用工具后用 `save_abnormal_episode_followup_plan` 保存 scheduled plan；合同测试 `planner_run_once_saves_dynamic_plan_for_pending_abnormal_followup` 已通过 |
+| 后台自动模型 planning job | 已具备 | 新增 `agent_followup_planner` 后台任务；异常创建/追加先写 `agent_proactive_followups.status=planning`，planner 领取后复用现有 Agent Runtime、workflow skill、tool registry 和 `ObservationWriteContext`，模型按身份档案、异常事实、quick facts、饮食和储物柜线索调用工具后，用 `save_abnormal_episode_followup_plan` 保存包含信息断层审计的 scheduled plan；合同测试 `planner_run_once_saves_dynamic_plan_for_pending_abnormal_followup` 已通过 |
 | 首条主动追问落库 | 已具备 | `agent_followup_scheduler::run_once` 在计划到期并投影轻提醒后，创建/复用同一 `abnormal_episode_followup` AI session，并写入一条 assistant 主动追问消息；重复运行不重复写；合同测试 `scheduler_run_once_writes_first_agent_followup_message` 已通过 |
 | 后台追踪会话中间态 | 已具备 | 创建/到期追踪可以创建 `ai_chat_sessions.session_visibility=background` 的异常追踪上下文，历史列表不会返回；用户从轻提醒点击 `问问毛球` 时复用同一 session 并升级为 `visible`，写入 `activated_at`；合同测试 `ai_chat_sessions_hides_background_abnormal_tracking_context`、`abnormal_followup_entry_activates_background_tracking_session` 已通过 |
 | 异常删除后的会话边界 | 已具备 | 删除父异常时只把相关 AI session 的 `context_status` 标记为 `deleted`；后台追踪上下文保持隐藏，已升级为真实聊天的 session 仍保留在历史中；合同测试 `deleted_abnormal_episode_closes_background_tracking_context`、`deleted_abnormal_episode_keeps_activated_chat_session_visible` 已通过 |
@@ -617,7 +618,7 @@ App 病历详情应展示“医院发布版健康档案”，而不是用户手�
 | `due_at` | 调度器生成站内轻提醒的时间；由模型 planning 保存的计划决定 |
 | `message_title` / `message_body` | 首页轻提醒展示文案 |
 | `rationale` | Agent 给系统的规划理由，默认不直接展示 |
-| `planning_decision` | 模型选定 `due_at` 的结构化自说明，至少包含当前时间、异常发生时间、已过时长、选中追问时间、延迟分钟数、紧急窗口、理由、是否使用时间工具 |
+| `planning_decision` | 模型选定 `due_at` 的结构化自说明，至少包含当前时间、异常发生时间、最近观察时间、信息断层分钟数、追踪时机判断、身份/年龄上下文、选中追问时间、延迟分钟数、紧急窗口、理由、是否使用时间工具 |
 | `recommended_actions` | `update_observation/chat_with_agent/view_detail` 等动作 |
 | `created_at/updated_at/resolved_at` | 审计字段 |
 
@@ -627,7 +628,7 @@ Agent 能力拆分必须保持“skill 负责理解和流程策略，tool 负责
 
 | 类型 | 什么时候创建 | 职责 | 禁止承担 |
 |---|---|---|---|
-| Agent skill | 需要多步理解、追问策略、规划规则、跨 turn 一致行为、自然语言归纳时 | 异常追踪 planning、首条追问生成、根据用户反馈决定继续观察/建议就医/结束追踪、把自然语言整理成待确认追加观察、输出 `time_decision` 解释追问时间 | 直接写数据库、定时调度、绕过工具读取事实、把未确认用户话术写成事实 |
+| Agent skill | 需要多步理解、追问策略、规划规则、跨 turn 一致行为、自然语言归纳时 | 异常追踪 planning、首条追问生成、根据用户反馈决定继续观察/建议就医/结束追踪、把自然语言整理成待确认追加观察、基于 `occurred_at/last_observed_at/now_at` 评估信息断层、结合身份/年龄上下文输出 `time_decision` 解释追问时间 | 直接写数据库、定时调度、绕过工具读取事实、把未确认用户话术写成事实 |
 | Agent tool | Agent 需要访问系统事实或执行受控副作用时 | 读取 episode facts、读取 quick facts、读取饮食/储物柜线索、提交经用户确认的追加观察、提交追踪计划结果 | 自行决定追踪节奏、隐藏多步业务策略、替代 skill 推理、返回和职责无关的综合摘要 |
 | Scheduler | 需要按时间触发系统动作时 | 扫描 `agent_proactive_followups.due_at`，生成/激活站内 `attention_hints` | 生成医疗建议、理解异常内容、改写 Agent 文案 |
 | Application service | 需要保证事务一致性和状态机时 | 创建 episode、保存计划、resolve hint、cancel plans、关闭/归档 episode | 把模型输出当作无校验事实直接入库 |
@@ -636,8 +637,8 @@ Agent 能力拆分必须保持“skill 负责理解和流程策略，tool 负责
 
 | 触发条件 | 说明 | 本目标例子 |
 |---|---|---|
-| 需要组合多个事实源形成判断 | 事实来自多个 tool，结论需要模型理解和权衡 | 根据异常、近期便便/精神/食欲、饮食和储物柜线索判断追问时间 |
-| 需要多轮一致策略 | 同一 episode 的追问节奏需要跨创建、追加、关闭保持一致 | 模型根据异常发生时间、当前时间、严重度、追加观察和近期事实，自主决定下一次追问时间并给出 `time_decision` |
+| 需要组合多个事实源形成判断 | 事实来自多个 tool，结论需要模型理解和权衡 | 根据身份/年龄、异常、近期便便/精神/食欲、饮食和储物柜线索判断追问时间 |
+| 需要多轮一致策略 | 同一 episode 的追问节奏需要跨创建、追加、关闭保持一致 | 模型根据异常发生时间、最近追加观察、当前时间、严重度、身份/年龄和近期事实，自主决定下一次追问时间并给出 `time_decision` |
 | 需要自然语言生成 | 需要生成用户可读文案、追问语气或待确认草稿 | “毛球看到早上拉肚子已经 6 小时了，现在精神和食欲怎么样？” |
 | 需要医疗边界判断 | 需要把建议限制在观察/就医建议范围 | 出现血便、拒食、精神明显变差时建议就医 |
 | 需要把用户自由表达归纳成结构化草稿 | 用户在聊天中描述，系统需要生成待确认写入内容 | “还是拉稀，没昨天活泼”归纳成便便异常、精神下降、备注草稿 |

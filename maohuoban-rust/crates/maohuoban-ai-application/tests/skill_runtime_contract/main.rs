@@ -305,19 +305,22 @@ fn builtin_runtime_matches_abnormal_episode_proactive_followup_planning_skill() 
     assert!(
         bundle
             .merged_instruction
-            .contains("读取异常 episode、近期便便/精神/食欲、饮食和储物柜线索"),
+            .contains("读取宠物身份档案、异常 episode、近期便便/精神/食欲、饮食和储物柜线索"),
         "planning skill should force multi-source evidence before planning: {}",
         bundle.merged_instruction
     );
     assert!(
         bundle
             .merged_instruction
-            .contains("输出 due_at、追问文案、规划理由和推荐动作"),
+            .contains("信息断层按 now_at - max(occurred_at,last_observed_at) 理解"),
         "planning skill should define the plan contract: {}",
         bundle.merged_instruction
     );
     assert!(
         bundle.merged_instruction.contains("time_decision")
+            && bundle.merged_instruction.contains("attention_timing")
+            && bundle.merged_instruction.contains("staleness_assessment")
+            && bundle.merged_instruction.contains("identity_context")
             && bundle.merged_instruction.contains("urgency_window")
             && bundle.merged_instruction.contains("time_tool_used"),
         "planning skill should require auditable model-owned time reasoning: {}",
@@ -343,6 +346,7 @@ fn builtin_runtime_matches_abnormal_episode_proactive_followup_planning_skill() 
         bundle.toolset_policy.preferred_toolsets
     );
     for expected_tool in [
+        "load_pet_identity_context",
         "load_pet_abnormal_episode_facts",
         "load_pet_recent_health_facts",
         "load_pet_current_diet_context",

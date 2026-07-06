@@ -409,7 +409,7 @@ async fn ensure_planning_session(
 
 fn planner_prompt(target: &PlanningTarget, now_at: DateTime<Utc>) -> String {
     format!(
-        "异常主动追踪 planning：请为宠物 {} 的异常 episode {} 生成下一次站内轻提醒计划。当前时间 {}。必须先读取异常 episode、近期便便/精神/食欲、当前饮食和储物柜线索；然后调用 save_abnormal_episode_followup_plan 保存 due_at、message_title、message_body、rationale 和 recommended_actions。",
+        "异常主动追踪 planning：请为宠物 {} 的异常 episode {} 评估是否已经存在信息断层，并生成站内轻提醒计划。当前时间 {}。必须先读取宠物身份档案、异常 episode、近期便便/精神/食欲、当前饮食和储物柜线索；时间判断以异常真实发生时间 occurred_at 和最近一次已确认追加观察 last_observed_at 为主，信息断层按 now_at - max(occurred_at,last_observed_at) 理解，创建时间只表示系统何时知道这件事。然后调用 save_abnormal_episode_followup_plan 保存 due_at、message_title、message_body、rationale、time_decision 和 recommended_actions。",
         target.pet_name,
         target.episode_id,
         now_at.to_rfc3339()

@@ -281,6 +281,7 @@ impl PetService {
         if input.rationale.chars().count() > 500 {
             return Err(PetError::InvalidInput("追踪规划理由过长".to_owned()));
         }
+        validate_followup_planning_decision(&input.planning_decision, input.due_at)?;
         validate_followup_message_date_consistency(&input.message_body, &input.planning_decision)?;
         if input.recommended_actions.is_empty() {
             return Err(PetError::InvalidInput("推荐动作不能为空".to_owned()));
@@ -623,6 +624,122 @@ fn validate_quick_fact_update_payload(input: &UpdatePetEvent) -> PetResult<()> {
     match quick_fact_kind {
         "poop_normal" | "energy_normal" | "appetite_normal" => Ok(()),
         _ => Err(PetError::InvalidInput("快捷状态类型无效".to_owned())),
+    }
+}
+
+fn validate_followup_planning_decision(
+    planning_decision: &serde_json::Value,
+    due_at: DateTime<Utc>,
+) -> PetResult<()> {
+    let now_at = required_planning_datetime(planning_decision, "now_at")?;
+    let occurred_at = required_planning_datetime(planning_decision, "occurred_at")?;
+    let selected_due_at = required_planning_datetime(planning_decision, "selected_due_at")?;
+    if selected_due_at != due_at {
+        return Err(PetError::InvalidInput(
+            "追踪计划 due_at 与 time_decision.selected_due_at 不一致".to_owned(),
+        ));
+    }
+
+    let last_observed_at = optional_planning_datetime(planning_decision, "last_observed_at")?;
+    let staleness_anchor = last_observed_at
+        .filter(|observed_at| *observed_at > occurred_at)
+        .unwrap_or(occurred_at);
+    let expected_staleness = now_at
+        .signed_duration_since(staleness_anchor)
+        .num_minutes()
+        .max(0);
+    let submitted_staleness = planning_decision
+        .pointer("/staleness_assessment/staleness_minutes")
+        .and_then(serde_json::Value::as_i64)
+        .ok_or_else(|| PetError::InvalidInput("缺少信息断层分钟数".to_owned()))?;
+    if (submitted_staleness - expected_staleness).abs() > 2 {
+        return Err(PetError::InvalidInput(
+            "信息断层分钟数与异常发生/最近观察时间不一致".to_owned(),
+        ));
+    }
+
+    let delay_minutes = planning_decision
+        .get("delay_minutes")
+        .and_then(serde_json::Value::as_i64)
+        .ok_or_else(|| PetError::InvalidInput("缺少追踪延迟分钟数".to_owned()))?;
+    let expected_delay = selected_due_at.signed_duration_since(now_at).num_minutes();
+    if (delay_minutes - expected_delay).abs() > 2 {
+        return Err(PetError::InvalidInput(
+            "追踪延迟分钟数与选择的提醒时间不一致".to_owned(),
+        ));
+    }
+
+    let attention_timing = planning_decision
+        .get("attention_timing")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| PetError::InvalidInput("缺少追踪时机判断".to_owned()))?;
+    if !matches!(
+        attention_timing,
+        "now_or_soon" | "scheduled_later" | "monitor_without_prompt"
+    ) {
+        return Err(PetError::InvalidInput(
+            "追踪时机判断不在允许范围内".to_owned(),
+        ));
+    }
+
+    required_planning_string(
+        planning_decision,
+        "/staleness_assessment/basis",
+        "缺少信息断层依据",
+    )?;
+    required_planning_string(
+        planning_decision,
+        "/staleness_assessment/reason",
+        "缺少信息断层理由",
+    )?;
+    required_planning_string(
+        planning_decision,
+        "/identity_context/species",
+        "缺少宠物身份上下文",
+    )?;
+
+    Ok(())
+}
+
+fn required_planning_datetime(
+    planning_decision: &serde_json::Value,
+    key: &str,
+) -> PetResult<DateTime<Utc>> {
+    planning_decision
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .and_then(parse_utc_datetime)
+        .ok_or_else(|| PetError::InvalidInput(format!("缺少或无法解析 {key}")))
+}
+
+fn optional_planning_datetime(
+    planning_decision: &serde_json::Value,
+    key: &str,
+) -> PetResult<Option<DateTime<Utc>>> {
+    let Some(value) = planning_decision.get(key) else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Ok(None);
+    }
+    value
+        .as_str()
+        .and_then(parse_utc_datetime)
+        .map(Some)
+        .ok_or_else(|| PetError::InvalidInput(format!("无法解析 {key}")))
+}
+
+fn required_planning_string(
+    planning_decision: &serde_json::Value,
+    pointer: &str,
+    error_message: &str,
+) -> PetResult<()> {
+    match planning_decision
+        .pointer(pointer)
+        .and_then(serde_json::Value::as_str)
+    {
+        Some(value) if !value.trim().is_empty() => Ok(()),
+        _ => Err(PetError::InvalidInput(error_message.to_owned())),
     }
 }
 

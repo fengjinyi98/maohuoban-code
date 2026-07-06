@@ -79,8 +79,60 @@ impl AiToolDefinition for RuntimePetContextTool {
                         "description": "模型选择 due_at 的可审计时间决策说明。该字段只用于审计，不会让代码替模型决定提醒时间。",
                         "properties": {
                             "now_at": { "type": "string", "format": "date-time" },
+                            "occurred_at": { "type": "string", "format": "date-time" },
                             "episode_started_at": { "type": "string", "format": "date-time" },
+                            "last_observed_at": {
+                                "anyOf": [
+                                    { "type": "string", "format": "date-time" },
+                                    { "type": "null" }
+                                ]
+                            },
                             "elapsed_minutes": { "type": "integer" },
+                            "attention_timing": {
+                                "type": "string",
+                                "enum": [
+                                    "now_or_soon",
+                                    "scheduled_later",
+                                    "monitor_without_prompt"
+                                ]
+                            },
+                            "staleness_assessment": {
+                                "type": "object",
+                                "description": "模型对当前异常信息断层的判断。只用于审计模型如何理解 now_at - max(occurred_at,last_observed_at)。",
+                                "properties": {
+                                    "basis": { "type": "string" },
+                                    "staleness_minutes": { "type": "integer" },
+                                    "reason": { "type": "string" }
+                                },
+                                "required": [
+                                    "basis",
+                                    "staleness_minutes",
+                                    "reason"
+                                ]
+                            },
+                            "identity_context": {
+                                "type": "object",
+                                "description": "模型规划时使用的宠物基础身份事实摘要，例如物种、生日、出生至今天数或年龄阶段。",
+                                "properties": {
+                                    "species": { "type": "string" },
+                                    "birthday": {
+                                        "anyOf": [
+                                            { "type": "string" },
+                                            { "type": "null" }
+                                        ]
+                                    },
+                                    "world_days": {
+                                        "anyOf": [
+                                            { "type": "integer" },
+                                            { "type": "null" }
+                                        ]
+                                    },
+                                    "age_note": { "type": "string" }
+                                },
+                                "required": [
+                                    "species"
+                                ]
+                            },
                             "selected_due_at": { "type": "string", "format": "date-time" },
                             "delay_minutes": { "type": "integer" },
                             "urgency_window": { "type": "string" },
@@ -89,8 +141,13 @@ impl AiToolDefinition for RuntimePetContextTool {
                         },
                         "required": [
                             "now_at",
+                            "occurred_at",
                             "episode_started_at",
+                            "last_observed_at",
                             "elapsed_minutes",
+                            "attention_timing",
+                            "staleness_assessment",
+                            "identity_context",
                             "selected_due_at",
                             "delay_minutes",
                             "urgency_window",

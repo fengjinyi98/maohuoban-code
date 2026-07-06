@@ -163,12 +163,13 @@ fn workflow_abnormal_episode_proactive_followup_planning() -> SkillDefinition {
         title: "异常 episode 主动追踪规划".to_owned(),
         match_conditions: conditions,
         instruction_block:
-            "异常主动追踪 planning 必须先读取异常 episode、近期便便/精神/食欲、饮食和储物柜线索，再由模型自主判断并输出 due_at、追问文案、规划理由和推荐动作；同时必须输出 time_decision，包含 now_at、episode_started_at、elapsed_minutes、selected_due_at、delay_minutes、urgency_window、reason、time_tool_used，用于审计模型为什么选择该追问时间。弱线索只能作为待确认询问方向，不能写成已确认病因或已发生事实。skill 只产出计划草稿，保存计划必须交给受控 tool 和 application service 校验。"
+            "异常主动追踪 planning 必须先读取宠物身份档案、异常 episode、近期便便/精神/食欲、饮食和储物柜线索，再由模型自主判断当前是否存在信息断层，而不是单纯从记录创建时间开始安排下一次追问。时间判断以异常真实发生时间 occurred_at 和最近一次已确认追加观察 last_observed_at 为主，创建时间只表示系统何时知道这件事；信息断层按 now_at - max(occurred_at,last_observed_at) 理解。模型需要先判断当前异常事实是否已经缺少最新状态，再决定 due_at 可以是现在/几分钟内、稍后追问或暂不打扰。必须输出 time_decision，包含 now_at、occurred_at、episode_started_at、last_observed_at、elapsed_minutes、attention_timing、staleness_assessment、identity_context、selected_due_at、delay_minutes、urgency_window、reason、time_tool_used，用于审计模型为什么选择该追问时间；attention_timing 只能为 now_or_soon、scheduled_later 或 monitor_without_prompt。弱线索只能作为待确认询问方向，不能写成已确认病因或已发生事实。skill 只产出计划草稿，保存计划必须交给受控 tool 和 application service 校验。"
                 .to_owned(),
         toolset_hints: SkillToolsetHints {
             allowed_toolsets: Vec::new(),
             preferred_toolsets: vec![Toolset::PrivatePetContext, Toolset::Temporal],
             preferred_tools: vec![
+                "load_pet_identity_context".to_owned(),
                 "load_pet_abnormal_episode_facts".to_owned(),
                 "load_pet_recent_health_facts".to_owned(),
                 "load_pet_current_diet_context".to_owned(),
