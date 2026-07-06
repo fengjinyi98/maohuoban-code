@@ -3,8 +3,8 @@ import MaohuobanDesignSystem
 
 // PetMedicalRecordOverviewSection 病历记录概览区
 // 核心职责：
-// - 展示当前宠物病历数量和模块边界
-// - 强化病历记录只承载就诊、诊断和处置内容
+// - 展示当前宠物医院病历数量和模块边界
+// - 强化病历记录由合作医院发布回流
 struct PetMedicalRecordOverviewSection: View {
     let recordCount: Int
 
@@ -18,11 +18,11 @@ struct PetMedicalRecordOverviewSection: View {
                     .background(MHBTheme.ColorToken.primary.color.opacity(0.12), in: RoundedRectangle(cornerRadius: MHBTheme.Radius.large, style: .continuous))
 
                 VStack(alignment: .leading, spacing: MHBTheme.Spacing.s1) {
-                    Text("病历记录")
+                    Text("医院病历")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 
-                    Text("\(recordCount) 条就诊、诊断或处置记录")
+                    Text("\(recordCount) 条医院发布记录")
                         .font(MHBTheme.Typography.caption)
                         .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                 }
@@ -30,7 +30,7 @@ struct PetMedicalRecordOverviewSection: View {
                 Spacer(minLength: MHBTheme.Spacing.s2)
             }
 
-            Text("疫苗和驱虫已经归入独立模块；这里仅记录就诊、检查、诊断、处方和复诊过程。")
+            Text("这里展示合作医院发布回流的诊断、处方、检查报告和复诊建议。")
                 .font(MHBTheme.Typography.callout)
                 .foregroundStyle(MHBTheme.ColorToken.labelSecondary.color)
                 .fixedSize(horizontal: false, vertical: true)

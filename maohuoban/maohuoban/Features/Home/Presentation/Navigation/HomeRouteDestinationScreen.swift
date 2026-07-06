@@ -51,12 +51,7 @@ struct HomeRouteDestinationScreen: View {
                 }
             )
         case .medicalRecords(let context):
-            PetMedicalRecordScreen(
-                context: context,
-                onRecorded: {
-                    onHomeMutationCompleted(nil)
-                }
-            )
+            PetMedicalRecordScreen(context: context)
         case .recordAbnormal(let context):
             PetAbnormalRecordScreen(
                 context: context,

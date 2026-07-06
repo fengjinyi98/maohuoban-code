@@ -3,7 +3,7 @@ import MaohuobanDesignSystem
 
 // PetMedicalRecordListSection 病历记录列表区
 // 核心职责：
-// - 按时间展示当前宠物病历记录
+// - 按时间展示当前宠物医院发布病历
 // - 将列表点击意图交给页面路由状态
 struct PetMedicalRecordListSection: View {
     let records: [PetMedicalRecord]
@@ -11,7 +11,7 @@ struct PetMedicalRecordListSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MHBTheme.Spacing.s3) {
-            Text("全部病历")
+            Text("医院病历")
                 .font(MHBTheme.Typography.headline.weight(.semibold))
                 .foregroundStyle(MHBTheme.ColorToken.labelPrimary.color)
 

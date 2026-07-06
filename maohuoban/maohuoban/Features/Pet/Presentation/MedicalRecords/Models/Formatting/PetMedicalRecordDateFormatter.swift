@@ -2,8 +2,8 @@ import Foundation
 
 // PetMedicalRecordDateFormatter 病历记录日期格式化器
 // 核心职责：
-// - 统一病历 mock 表单保存后的日期展示
-// - 避免表单和列表散写日期格式
+// - 统一医院病历时间展示
+// - 避免列表和详情散写日期格式
 enum PetMedicalRecordDateFormatter {
     static func text(from date: Date) -> String {
         date.formatted(

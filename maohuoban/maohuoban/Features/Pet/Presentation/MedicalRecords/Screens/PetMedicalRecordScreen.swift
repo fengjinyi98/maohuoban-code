@@ -4,29 +4,25 @@ import MaohuobanDesignSystem
 
 // PetMedicalRecordScreen 病历记录列表页
 // 核心职责：
-// - 展示当前宠物的病历记录列表
-// - 承载新增病历、进入详情和宠物切换的前端 mock 状态流
+// - 展示当前宠物由医院发布回流的病历记录
+// - 承载病历详情进入和宠物切换的前端状态流
 struct PetMedicalRecordScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     let context: PetRecordEntryContext
-    let onRecorded: () -> Void
 
     @State private var selectedPet: PetRecordSwitchPet?
     @State private var records: [PetMedicalRecord]
     @State private var selectedRecordID: String?
-    @State private var isCreateSheetPresented = false
     @State private var windowSafeAreaInsets = UIEdgeInsets.zero
 
     init(
-        context: PetRecordEntryContext,
-        onRecorded: @escaping () -> Void = {}
+        context: PetRecordEntryContext
     ) {
         self.context = context
-        self.onRecorded = onRecorded
         let pets = PetMedicalRecordScreen.availablePets(from: context)
         self._selectedPet = State(initialValue: context.selectedSwitchPet ?? pets.first)
-        self._records = State(initialValue: PetMedicalRecordMockData.records(for: pets))
+        self._records = State(initialValue: [])
     }
 
     var body: some View {
@@ -38,21 +34,14 @@ struct PetMedicalRecordScreen: View {
                 MHBTheme.ColorToken.background.color
                     .ignoresSafeArea()
 
-                MHBScreenScrollView {
-                    VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
-                        PetMedicalRecordOverviewSection(recordCount: filteredRecords.count)
-
-                        PetMedicalRecordListSection(
-                            records: filteredRecords,
-                            onOpen: { record in
-                                selectedRecordID = record.id
-                            }
-                        )
+                PetMedicalRecordContent(
+                    records: filteredRecords,
+                    topPadding: topContentPadding(topInset: topInset),
+                    bottomPadding: bottomContentPadding(bottomInset: bottomInset),
+                    onOpen: { record in
+                        selectedRecordID = record.id
                     }
-                    .padding(.horizontal, MHBTheme.Spacing.s5)
-                    .padding(.top, topContentPadding(topInset: topInset))
-                    .padding(.bottom, MHBTheme.Spacing.s8 + MHBTheme.Spacing.s8 + MHBTheme.Spacing.s6)
-                }
+                )
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .zIndex(0)
 
@@ -60,17 +49,6 @@ struct PetMedicalRecordScreen: View {
                     windowSafeAreaInsets = insets
                 }
                 .allowsHitTesting(false)
-
-                MHBBottomFloatingActionCTA(
-                    title: "新增病历",
-                    systemImage: "plus",
-                    bottomInset: bottomInset,
-                    action: {
-                        isCreateSheetPresented = true
-                    }
-                )
-                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .bottom)
-                .zIndex(2)
 
                 PetMedicalRecordTopChrome(
                     selectedItem: currentPetSwitcherItem,
@@ -92,13 +70,8 @@ struct PetMedicalRecordScreen: View {
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(true)
         .navigationDestination(item: $selectedRecordID) { recordID in
-            if let record = binding(for: recordID) {
-                PetMedicalRecordDetailScreen(
-                    record: record,
-                    onAppendUpdate: { update in
-                        append(update: update, to: recordID)
-                    }
-                )
+            if let record = record(for: recordID) {
+                PetMedicalRecordDetailScreen(record: record)
             } else {
                 PetRecordDetailPlaceholderScreen(
                     systemImage: "stethoscope",
@@ -107,14 +80,6 @@ struct PetMedicalRecordScreen: View {
                     accessibilityIdentifier: "pet.medicalRecord.missing"
                 )
             }
-        }
-        .sheet(isPresented: $isCreateSheetPresented) {
-            PetMedicalRecordFormSheet(
-                mode: .create,
-                onSave: { draft in
-                    createRecord(from: draft)
-                }
-            )
         }
         .accessibilityIdentifier("pet.medicalRecord.screen")
     }
@@ -129,6 +94,10 @@ struct PetMedicalRecordScreen: View {
 
     private func topContentPadding(topInset: CGFloat) -> CGFloat {
         topInset + topChromeHeight + MHBTheme.Spacing.s5
+    }
+
+    private func bottomContentPadding(bottomInset: CGFloat) -> CGFloat {
+        bottomInset + MHBTheme.Spacing.s6
     }
 
     private var currentPetID: String? {
@@ -183,20 +152,44 @@ struct PetMedicalRecordScreen: View {
         )
     }
 
-    private func binding(for recordID: String) -> Binding<PetMedicalRecord>? {
-        guard let index = records.firstIndex(where: { $0.id == recordID }) else { return nil }
-        return $records[index]
+    private func record(for recordID: String) -> PetMedicalRecord? {
+        records.first(where: { $0.id == recordID })
     }
+}
 
-    private func createRecord(from draft: PetMedicalRecordDraft) {
-        let petID = currentPetID ?? "pet-medical-current"
-        records.insert(draft.makeRecord(petID: petID), at: 0)
-        onRecorded()
-    }
+// PetMedicalRecordContent 医院病历内容区
+// 核心职责：
+// - 在有医院回流记录时展示概览和列表
+// - 在无记录时提供居中的医院病历空状态
+private struct PetMedicalRecordContent: View {
+    let records: [PetMedicalRecord]
+    let topPadding: CGFloat
+    let bottomPadding: CGFloat
+    let onOpen: (PetMedicalRecord) -> Void
 
-    private func append(update: PetMedicalRecord.Update, to recordID: String) {
-        guard let index = records.firstIndex(where: { $0.id == recordID }) else { return }
-        records[index].appendUpdate(update)
-        onRecorded()
+    var body: some View {
+        if records.isEmpty {
+            VStack {
+                PetMedicalRecordEmptyState()
+            }
+            .padding(.horizontal, MHBTheme.Spacing.s5)
+            .padding(.top, topPadding)
+            .padding(.bottom, bottomPadding)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        } else {
+            MHBScreenScrollView {
+                VStack(alignment: .leading, spacing: MHBTheme.Spacing.s5) {
+                    PetMedicalRecordOverviewSection(recordCount: records.count)
+
+                    PetMedicalRecordListSection(
+                        records: records,
+                        onOpen: onOpen
+                    )
+                }
+                .padding(.horizontal, MHBTheme.Spacing.s5)
+                .padding(.top, topPadding)
+                .padding(.bottom, bottomPadding)
+            }
+        }
     }
 }
